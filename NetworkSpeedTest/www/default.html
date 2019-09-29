@@ -1,0 +1,275 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<!-- The above 2 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+	<meta name="description" content="Network Speed Test for LAN and Internet">
+	<meta name="author" content="bp2008">
+
+	<title>Network Speed Test %%VERSION%%</title>
+	<style type="text/css">
+		body
+		{
+			font-family: sans-serif;
+		}
+
+		input[type="button"]
+		{
+			padding: 8px 16px;
+			font-size: 14pt;
+			border: none;
+			cursor: pointer;
+		}
+
+		.start
+		{
+			background-color: #009900;
+			color: #FFFFFF;
+		}
+
+			.start:hover
+			{
+				background-color: #33CC33;
+			}
+
+		.stop
+		{
+			background-color: #CC0000;
+			color: #FFFFFF;
+		}
+
+			.stop:hover
+			{
+				background-color: #FF3333;
+			}
+
+		.section
+		{
+		}
+
+			.section div
+			{
+				margin-bottom: 5px;
+			}
+
+		div.smoothie-chart-tooltip
+		{
+			background: #EEEEEE;
+			padding: 1em;
+			margin-top: 20px;
+			font-family: consolas;
+			color: #000000;
+			font-size: 10px;
+			pointer-events: none;
+			border: 1px solid black;
+		}
+
+		.chartWrapper
+		{
+			border: 1px solid black;
+			font-size: 0px;
+		}
+
+		#smoothie-chart
+		{
+			width: 100%;
+			height: 200px;
+			font-size: 12pt;
+		}
+	</style>
+	<script type="text/javascript" src="smoothie.js"></script>
+	<script type="text/javascript" src="util.js"></script>
+</head>
+
+<body>
+	<h1>Network Speed Test %%VERSION%%</h1>
+	<div class="section">
+		<div><input id="startBtn" type="button" onclick="StartSpeedTest()" value="Start Speed Test" class="start" /></div>
+		<div>&nbsp;</div>
+		<div class="chartWrapper"><canvas id="smoothie-chart"></div>
+		<div style="font-weight: bold;"><span style="color: #0000ff;">Blue: Download Mbps</span><!--, <span style="color: #ff8000;">Orange: Upload Mbps</span>--></div>
+		<div>&nbsp;</div>
+		<div>Download: <span id="dlRate">…</span></div>
+		<div>Upload speed testing is currently unavailable.</div>
+	</div>
+	<div class="section">
+		<h3>Nerdy Metadata</h3>
+		<div>Data Downloaded (this test): <span id="dlDataThis">…</span></div>
+		<div>Data Downloaded (overall): <span id="dlDataOverall">…</span></div>
+	</div>
+	<div class="section">
+		<h3>Advanced Options</h3>
+		<div><label>Connection Count: <input id="connectionCount" type="number" min="1" max="6" value="1" /></label></div>
+		<div><label>Test Duration: <input id="testSec" type="number" min="1" max="30" value="5" /> (seconds)</label></div>
+	</div>
+	<script type="text/javascript">
+		var streamers = [];
+		var speedTestActive = false;
+		var startedGraph = false;
+		var abortTimeout = null;
+
+		var lastStatusUpdate = 0;
+		var dlTotalBytes = 0;
+		var dlThisBytes = 0;
+		var dlBytesAtLastStatusUpdate = 0;
+		var dlBpsSlices = [];
+		var activeTime = 0;
+
+		var ele_dlRate = document.getElementById("dlRate");
+		var ele_dlDataThis = document.getElementById("dlDataThis");
+		var ele_dlDataOverall = document.getElementById("dlDataOverall");
+
+		var chart;
+		var chartCanvas = document.getElementById('smoothie-chart');
+		var seriesDownload = new TimeSeries();
+		var seriesUpload = new TimeSeries();
+
+		function StartSpeedTest()
+		{
+			if (speedTestActive)
+			{
+				AbortSpeedTest();
+				return;
+			}
+
+			var startBtn = document.getElementById("startBtn");
+			startBtn.value = "Stop Speed Test";
+			startBtn.classList = ["stop"];
+
+			ele_dlRate.innerText = "…";
+			ele_dlDataThis.innerText = "0B"
+
+			dlThisBytes = 0;
+			dlBytesAtLastStatusUpdate = 0;
+			dlBpsSlices = [];
+			lastStatusUpdate = performance.now();
+			speedTestActive = true;
+			if (!startedGraph)
+			{
+				startedGraph = true;
+				chart.streamTo(chartCanvas, 100);
+			}
+
+			streamers = [];
+			var connectionCount = parseInt(document.getElementById("connectionCount").value);
+			if (connectionCount < 1)
+				connectionCount = 1;
+			if (connectionCount > 6)
+				connectionCount = 6;
+			for (var i = 0; i < connectionCount; i++)
+				AddStreamer();
+
+			var testSec = parseInt(document.getElementById("testSec").value);
+			abortTimeout = setTimeout(function ()
+			{
+				AbortSpeedTest();
+			}, testSec * 1000);
+		}
+		function StatusUpdate()
+		{
+			var now = performance.now();
+			var elapsedMsSinceLastUpdate = now - lastStatusUpdate;
+			activeTime += elapsedMsSinceLastUpdate;
+
+			var dlBytes = (dlThisBytes - dlBytesAtLastStatusUpdate);
+			var dlBits = dlBytes * 8;
+			var dlBps = (1000 / elapsedMsSinceLastUpdate) * dlBits;
+			var dlMbps = dlBps / 1000000;
+			dlBpsSlices.push(dlBps);
+
+			ele_dlRate.innerText = formatBitsPerSecond(dlBps);
+			ele_dlDataThis.innerText = formatBytes(dlThisBytes, 2);
+			ele_dlDataOverall.innerText = formatBytes(dlTotalBytes, 2);
+
+			seriesDownload.append(activeTime, dlMbps);
+
+			dlBytesAtLastStatusUpdate = dlThisBytes;
+			lastStatusUpdate = now;
+		}
+		function AbortSpeedTest()
+		{
+			clearTimeout(abortTimeout);
+			streamers.forEach(function (streamer, index)
+			{
+				streamer.StopStreaming();
+			});
+			streamers = [];
+
+			speedTestActive = false;
+			startBtn.value = "Start Speed Test";
+			startBtn.classList = ["start"];
+
+			var totalBpsSlices = 0;
+			dlBpsSlices.forEach(function (slice) { totalBpsSlices += slice; });
+			ele_dlRate.innerText = formatBitsPerSecond(totalBpsSlices / dlBpsSlices.length) + " (Averaged)";
+		}
+		function AddStreamer()
+		{
+			var testSec = parseInt(document.getElementById("testSec").value);
+			var streamer = new FetchDataStreamer("randomdata?testSec=" + testSec
+				, function (data) // On data received
+				{
+					var length = data.length;
+					dlTotalBytes += length;
+					dlThisBytes += length;
+					if (performance.now() - lastStatusUpdate > 100)
+						StatusUpdate();
+				}
+				, function (message, wasAborted, responseError) // On stream ended
+				{
+					AbortSpeedTest();
+				}
+				, ShowError);
+			streamers.push(streamer);
+		}
+		function ShowError(err)
+		{
+			console.error(err);
+		}
+		function tooltipFormatter(timestamp, data)
+		{
+			var lines = [];
+			var label;
+
+			for (var i = 0; i < data.length; ++i)
+			{
+				label = data[i].series.options.tooltipLabel || ''
+				if (label !== '')
+				{
+					label = label + ' ';
+				}
+				lines.push('<span style="color:' + data[i].series.options.strokeStyle + '">' +
+					label +
+					this.options.yMaxFormatter(data[i].value, this.options.labels.precision) + '</span>');
+			}
+
+			return lines.join('<br>');
+		}
+
+		// Set up chart
+		chart = new SmoothieChart(
+			{
+				grid:
+				{
+					fillStyle: '#ffffff'
+					, strokeStyle: '#b4b4b4'
+					, sharpLines: true
+					, millisPerLine: 1000
+					, verticalSections: 4
+					, borderVisible: false
+				}
+				, labels: { fillStyle: '#000000' }
+				, tooltip: true
+				, minValue: 0
+				, responsive: true
+				, scaleSmoothing: 1
+				, nonRealtimeData: true
+				, tooltipFormatter: tooltipFormatter
+			});
+
+		chart.addTimeSeries(seriesDownload, { lineWidth: 2, strokeStyle: '#0000ff', fillStyle: 'rgba(0,0,255,0.30)' });
+		chart.addTimeSeries(seriesUpload, { lineWidth: 2, strokeStyle: '#ff8000', fillStyle: 'rgba(255,128,0,0.30)' });
+	</script>
+</body>
+</html>
