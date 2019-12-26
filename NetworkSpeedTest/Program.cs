@@ -1,4 +1,5 @@
-﻿using BPUtil.Forms;
+﻿using BPUtil;
+using BPUtil.Forms;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,11 +13,14 @@ namespace NetworkSpeedTest
 	class Program
 	{
 		public static NetworkSpeedTestConfig config = new NetworkSpeedTestConfig();
-		private const string configFile = "NetworkSpeedTestConfig.xml";
 		static void Main(string[] args)
 		{
-			config.Load(configFile);
-			config.SaveIfNoExist(configFile);
+			Application.ThreadException += Application_ThreadException;
+			Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+
+			config.Load();
+			config.SaveIfNoExist();
+
 			if (Environment.UserInteractive)
 			{
 				string Title = "Network Speed Test " + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString() + " Service Manager";
@@ -36,7 +40,8 @@ namespace NetworkSpeedTest
 				ButtonDefinition[] customButtons = new ButtonDefinition[] { btnStartTemporary, btnPort };
 
 
-				System.Windows.Forms.Application.Run(new ServiceManager(Title, ServiceName, customButtons));
+
+				System.Windows.Forms.Application.Run(new ServiceManager(Title, ServiceName, customButtons, new DuplexTestButton()));
 			}
 			else
 			{
@@ -48,6 +53,12 @@ namespace NetworkSpeedTest
 				ServiceBase.Run(ServicesToRun);
 			}
 		}
+
+		private static void Application_ThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
+		{
+			Logger.Debug(e.Exception);
+		}
+
 		private static void btnPort_Click(object sender, EventArgs e)
 		{
 			InputDialog id = new InputDialog("Web Server Port", "Web Port [0-65535]:", config.port.ToString());
@@ -56,7 +67,8 @@ namespace NetworkSpeedTest
 				if (ushort.TryParse(id.InputText, out ushort port))
 				{
 					config.port = port;
-					config.Save(configFile);
+					config.Save();
+
 					((Button)sender).Text = "Port: " + port;
 					MessageBox.Show("The web server port number has been changed to " + port + "." + Environment.NewLine + Environment.NewLine
 						+ "Please restart the service or temporary instance for the change to take effect.");

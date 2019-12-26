@@ -44,8 +44,10 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.ServiceProcess" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Windows.Forms.DataVisualization" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -54,17 +56,48 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="NetworkSpeedSummary.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="NetworkSpeedSummary.Designer.cs">
+      <DependentUpon>NetworkSpeedSummary.cs</DependentUpon>
+    </Compile>
+    <Compile Include="SpeedTest\Autodetector.cs" />
+    <Compile Include="SpeedTest\RemoteSpeedTestServer.cs" />
+    <Compile Include="SpeedTest\ControlConnectionContext.cs" />
     <Compile Include="MainSvc.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="MainSvc.Designer.cs">
       <DependentUpon>MainSvc.cs</DependentUpon>
     </Compile>
+    <Compile Include="NetworkSpeedGraph.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="NetworkSpeedGraph.Designer.cs">
+      <DependentUpon>NetworkSpeedGraph.cs</DependentUpon>
+    </Compile>
     <Compile Include="NetworkSpeedTestConfig.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ServiceWrapper.cs" />
+    <Compile Include="SpeedTestForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SpeedTestForm.Designer.cs">
+      <DependentUpon>SpeedTestForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="SpeedTest\SpeedTestServer.cs" />
+    <Compile Include="SpeedTest\TcpTestConnectionClient.cs" />
+    <Compile Include="SpeedTest\TcpTestConnectionContext.cs" />
+    <Compile Include="DuplexTestButton.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="DuplexTestButton.Designer.cs">
+      <DependentUpon>DuplexTestButton.cs</DependentUpon>
+    </Compile>
     <Compile Include="WebServer.cs" />
+    <Compile Include="NSTWebSocketServer.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -75,12 +108,30 @@
       <Project>{A4981D8D-DEBF-4B34-B9CE-FF25520A02B7}</Project>
       <Name>BPUtil</Name>
     </ProjectReference>
+    <ProjectReference Include="..\websocket-sharp\websocket-sharp.csproj">
+      <Project>{B357BAC7-529E-4D81-A0D2-71041B19C8DE}</Project>
+      <Name>websocket-sharp</Name>
+    </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <EmbeddedResource Include="DuplexTestButton.resx">
+      <DependentUpon>DuplexTestButton.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="NetworkSpeedGraph.resx">
+      <DependentUpon>NetworkSpeedGraph.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="NetworkSpeedSummary.resx">
+      <DependentUpon>NetworkSpeedSummary.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SpeedTestForm.resx">
+      <DependentUpon>SpeedTestForm.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
   <ItemGroup>
     <Content Include="www\default.html" />
     <Content Include="www\util.js" />
     <Content Include="www\smoothie.js" />
+    <Content Include="www\WebSocketStreamer.js" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

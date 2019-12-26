@@ -196,3 +196,14 @@ function formatBitsPerSecond(bits)
 		i = Math.floor(Math.log(bits) / Math.log(k));
 	return (negative ? '-' : '') + (bits / Math.pow(k, i)).toFloat(decimals[i]) + ' ' + sizes[i];
 }
+var escape = document.createElement('textarea');
+function EscapeHTML(html)
+{
+	escape.textContent = html;
+	return escape.innerHTML;
+}
+function UnescapeHTML(html)
+{
+	escape.innerHTML = html;
+	return escape.textContent;
+}

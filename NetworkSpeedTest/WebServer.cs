@@ -17,16 +17,19 @@ namespace NetworkSpeedTest
 	{
 		private long rnd = StaticRandom.Next(int.MinValue, int.MaxValue);
 		private Stopwatch sw = new Stopwatch();
+		NSTWebSocketServer wss;
 		public WebServer(int port) : base(port)
 		{
 			//SendBufferSize = 128;
 			//ReceiveBufferSize = 128;
 			sw.Start();
+			wss = new NSTWebSocketServer(port);
+			wss.Start();
 		}
 		public override void handleGETRequest(HttpProcessor p)
 		{
 			string pageLower = p.requestedPage.ToLower();
-			if (pageLower.StartsWith("randomdata"))
+			if (p.requestedPage == "randomdata")
 			{
 				p.writeSuccess("application/x-binary");
 				p.outputStream.Flush();
@@ -40,6 +43,10 @@ namespace NetworkSpeedTest
 				{
 					p.tcpStream.Write(randomData, 0, randomData.Length);
 				}
+			}
+			else if (p.requestedPage == "nstws")
+			{
+				wss.AcceptIncomingConnection(p.tcpClient);
 			}
 			else if (p.requestedPage == "HEADERS")
 			{
@@ -119,6 +126,7 @@ namespace NetworkSpeedTest
 
 		protected override void stopServer()
 		{
+			wss.Stop();
 		}
 	}
 }

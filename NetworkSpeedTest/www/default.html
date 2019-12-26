@@ -80,6 +80,7 @@
 	</style>
 	<script type="text/javascript" src="smoothie.js"></script>
 	<script type="text/javascript" src="util.js"></script>
+	<script type="text/javascript" src="WebSocketStreamer.js"></script>
 </head>
 
 <body>
@@ -270,6 +271,12 @@
 
 		chart.addTimeSeries(seriesDownload, { lineWidth: 2, strokeStyle: '#0000ff', fillStyle: 'rgba(0,0,255,0.30)' });
 		chart.addTimeSeries(seriesUpload, { lineWidth: 2, strokeStyle: '#ff8000', fillStyle: 'rgba(255,128,0,0.30)' });
+
+		var wss = new WebSocketStreamer(function (data) // Packet Received
+		{
+			console.log(data);
+		});
+		wss.Connect();
 	</script>
 </body>
 </html>
