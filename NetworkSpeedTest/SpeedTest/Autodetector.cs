@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -10,10 +11,15 @@ namespace NetworkSpeedTest.SpeedTest
 {
 	public class Autodetector
 	{
-		private UdpBroadcaster broadcastReceiver;
+		private GlobalUdpBroadcaster broadcastReceiver;
 		private List<RemoteSpeedTestServer> servers = new List<RemoteSpeedTestServer>();
 		private ListView lvServers;
 		private Dictionary<RemoteSpeedTestServer, ListViewItem> serverToListViewItem = new Dictionary<RemoteSpeedTestServer, ListViewItem>();
+		private Thread triggerBroadcastsThread;
+		/// <summary>
+		/// If true, broadcasting is enabled.  If false, broadcasting is disabled.
+		/// </summary>
+		public bool Enabled = true;
 
 		public Autodetector(ListView lvServers)
 		{
@@ -74,13 +80,39 @@ namespace NetworkSpeedTest.SpeedTest
 
 		public void Start()
 		{
-			broadcastReceiver = new UdpBroadcaster(45678, true);
+			Stop();
+
+			broadcastReceiver = new GlobalUdpBroadcaster(45678, true);
 			broadcastReceiver.PacketReceived += BroadcastReceiver_PacketReceived;
+
+			triggerBroadcastsThread = new Thread(() =>
+			{
+				try
+				{
+					while (true)
+					{
+						Thread.Sleep(1333);
+						if (Enabled)
+							broadcastReceiver.Broadcast(ByteUtil.Utf8NoBOM.GetBytes("SpeedTestServer Broadcast Request"));
+					}
+				}
+				catch (ThreadAbortException) { }
+				catch (Exception ex)
+				{
+					Logger.Debug(ex);
+				}
+			});
+			triggerBroadcastsThread.Name = "Autodetector Timer Thread";
+			triggerBroadcastsThread.IsBackground = true;
+			triggerBroadcastsThread.Start();
 		}
 		public void Stop()
 		{
 			broadcastReceiver?.Stop();
 			broadcastReceiver = null;
+
+			triggerBroadcastsThread?.Abort();
+			triggerBroadcastsThread = null;
 		}
 	}
 }

@@ -176,6 +176,8 @@ namespace NetworkSpeedTest
 			rbTCP.Enabled = !disableAll;
 			rbUDP.Enabled = false; // TODO: Enable this
 
+			autodetector.Enabled = !disableAll;
+
 			nudTcpStreams.Enabled = Program.config.testWithTcp && !disableAll;
 			nudUdpTestSpeed.Enabled = !Program.config.testWithTcp && !disableAll;
 		}

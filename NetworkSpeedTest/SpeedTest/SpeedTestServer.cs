@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -21,10 +22,11 @@ namespace NetworkSpeedTest.SpeedTest
 		private UdpClient udpListener;
 		private ConcurrentDictionary<string, ControlConnectionContext> currentControlConnections = new ConcurrentDictionary<string, ControlConnectionContext>();
 
+		private GlobalUdpBroadcaster autodetectBroadcaster;
+		private object autodetectBroadcasterLock = new object();
+
 		public int tcpListenPort { get; private set; } = 0;
 		public int udpListenPort { get; private set; } = 0;
-
-		private long networkChangeCount = 0;
 
 
 		public SpeedTestServer()
@@ -36,6 +38,8 @@ namespace NetworkSpeedTest.SpeedTest
 
 			NetworkChange.NetworkAvailabilityChanged += NetworkChange_NetworkAvailabilityChanged;
 			NetworkChange.NetworkAddressChanged += NetworkChange_NetworkAddressChanged;
+
+			NetworkAddressesChanged();
 
 			listenThread = new Thread(listenManager);
 			listenThread.Name = "SpeedTest Listen Thread";
@@ -69,26 +73,10 @@ namespace NetworkSpeedTest.SpeedTest
 								tcpListenPort = ((IPEndPoint)tcpListener.LocalEndpoint).Port;
 								udpListenPort = ((IPEndPoint)udpListener.Client.LocalEndPoint).Port;
 
-								byte[] autodetectBroadcastPacket = new byte["SpeedTestServer0".Length + 4];
-								ByteUtil.WriteUtf8("SpeedTestServer0", autodetectBroadcastPacket, 0);
-								ByteUtil.WriteUInt16((ushort)tcpListenPort, autodetectBroadcastPacket, autodetectBroadcastPacket.Length - 4);
-								ByteUtil.WriteUInt16((ushort)udpListenPort, autodetectBroadcastPacket, autodetectBroadcastPacket.Length - 2);
-								long lastNetworkState = Interlocked.Read(ref networkChangeCount);
-								GlobalUdpBroadcaster autodetectBroadcaster = new GlobalUdpBroadcaster(45678, false);
 								try
 								{
-
 									while (true)
-									{
-										long newNetworkState = Interlocked.Read(ref networkChangeCount);
-										if (newNetworkState != lastNetworkState)
-										{
-											lastNetworkState = newNetworkState;
-											autodetectBroadcaster = new GlobalUdpBroadcaster(45678, false);
-										}
-										autodetectBroadcaster.Broadcast(autodetectBroadcastPacket);
-										Thread.Sleep(3000);
-									}
+										Thread.Sleep(30000);
 								}
 								finally
 								{
@@ -108,6 +96,8 @@ namespace NetworkSpeedTest.SpeedTest
 					catch (ThreadAbortException) { }
 					catch (Exception ex)
 					{
+						tcpListenPort = 0;
+						udpListenPort = 0;
 						Logger.Debug(ex);
 						Thread.Sleep(1000);
 					}
@@ -132,20 +122,55 @@ namespace NetworkSpeedTest.SpeedTest
 			}
 			catch { }
 		}
+
+		#region Autodetect Broadcaster
 		private void NetworkChange_NetworkAddressChanged(object sender, EventArgs e)
 		{
-			UpdateNetworkAddresses();
+			NetworkAddressesChanged();
 		}
 
 		private void NetworkChange_NetworkAvailabilityChanged(object sender, NetworkAvailabilityEventArgs e)
 		{
-			UpdateNetworkAddresses();
+			NetworkAddressesChanged();
 		}
 
-		private void UpdateNetworkAddresses()
+		private void NetworkAddressesChanged()
 		{
-			Interlocked.Increment(ref networkChangeCount);
+			lock (autodetectBroadcasterLock)
+			{
+				autodetectBroadcaster = new GlobalUdpBroadcaster(45678, true);
+				autodetectBroadcaster.PacketReceived += AutodetectBroadcaster_PacketReceived;
+			}
 		}
+
+		private Stopwatch broadcastTimer = Stopwatch.StartNew();
+		private long lastBroadcastAt = -99999;
+		private void AutodetectBroadcaster_PacketReceived(object sender, UdpPacket e)
+		{
+			try
+			{
+				string str = ByteUtil.ReadUtf8(e.Data);
+				if (str == "SpeedTestServer Broadcast Request")
+				{
+					if (broadcastTimer.ElapsedMilliseconds - lastBroadcastAt > 1000) // Limit broadcasts to 1 per second
+					{
+						lastBroadcastAt = broadcastTimer.ElapsedMilliseconds;
+
+						if (tcpListenPort > 0 && udpListenPort > 0)
+						{
+							byte[] autodetectBroadcastPacket = new byte["SpeedTestServer0".Length + 4];
+							ByteUtil.WriteUtf8("SpeedTestServer0", autodetectBroadcastPacket, 0);
+							ByteUtil.WriteUInt16((ushort)tcpListenPort, autodetectBroadcastPacket, autodetectBroadcastPacket.Length - 4);
+							ByteUtil.WriteUInt16((ushort)udpListenPort, autodetectBroadcastPacket, autodetectBroadcastPacket.Length - 2);
+							lock (autodetectBroadcasterLock)
+								autodetectBroadcaster.Broadcast(autodetectBroadcastPacket);
+						}
+					}
+				}
+			}
+			catch { }
+		}
+		#endregion
 
 		#region TCP
 		private void HandleTcpConnection(IAsyncResult ar)
