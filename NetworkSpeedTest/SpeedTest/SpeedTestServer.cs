@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -23,12 +24,18 @@ namespace NetworkSpeedTest.SpeedTest
 		public int tcpListenPort { get; private set; } = 0;
 		public int udpListenPort { get; private set; } = 0;
 
+		private long networkChangeCount = 0;
+
+
 		public SpeedTestServer()
 		{
 		}
 		public void Start()
 		{
 			Stop();
+
+			NetworkChange.NetworkAvailabilityChanged += NetworkChange_NetworkAvailabilityChanged;
+			NetworkChange.NetworkAddressChanged += NetworkChange_NetworkAddressChanged;
 
 			listenThread = new Thread(listenManager);
 			listenThread.Name = "SpeedTest Listen Thread";
@@ -66,14 +73,21 @@ namespace NetworkSpeedTest.SpeedTest
 								ByteUtil.WriteUtf8("SpeedTestServer0", autodetectBroadcastPacket, 0);
 								ByteUtil.WriteUInt16((ushort)tcpListenPort, autodetectBroadcastPacket, autodetectBroadcastPacket.Length - 4);
 								ByteUtil.WriteUInt16((ushort)udpListenPort, autodetectBroadcastPacket, autodetectBroadcastPacket.Length - 2);
-								UdpBroadcaster autodetectBroadcaster = new UdpBroadcaster(IPAddress.Broadcast, IPAddress.Any, 45678, false);
+								long lastNetworkState = Interlocked.Read(ref networkChangeCount);
+								GlobalUdpBroadcaster autodetectBroadcaster = new GlobalUdpBroadcaster(45678, false);
 								try
 								{
 
 									while (true)
 									{
+										long newNetworkState = Interlocked.Read(ref networkChangeCount);
+										if (newNetworkState != lastNetworkState)
+										{
+											lastNetworkState = newNetworkState;
+											autodetectBroadcaster = new GlobalUdpBroadcaster(45678, false);
+										}
 										autodetectBroadcaster.Broadcast(autodetectBroadcastPacket);
-										Thread.Sleep(1000);
+										Thread.Sleep(3000);
 									}
 								}
 								finally
@@ -110,6 +124,27 @@ namespace NetworkSpeedTest.SpeedTest
 		{
 			listenThread?.Abort();
 			listenThread = null;
+
+			try
+			{
+				NetworkChange.NetworkAvailabilityChanged -= NetworkChange_NetworkAvailabilityChanged;
+				NetworkChange.NetworkAddressChanged -= NetworkChange_NetworkAddressChanged;
+			}
+			catch { }
+		}
+		private void NetworkChange_NetworkAddressChanged(object sender, EventArgs e)
+		{
+			UpdateNetworkAddresses();
+		}
+
+		private void NetworkChange_NetworkAvailabilityChanged(object sender, NetworkAvailabilityEventArgs e)
+		{
+			UpdateNetworkAddresses();
+		}
+
+		private void UpdateNetworkAddresses()
+		{
+			Interlocked.Increment(ref networkChangeCount);
 		}
 
 		#region TCP

@@ -19,7 +19,7 @@ namespace NetworkSpeedTest
 {
 	public partial class SpeedTestForm : SelfCenteredForm
 	{
-		private BackgroundWorker bwSpeedTestController = new BackgroundWorker();
+		private BackgroundWorker bwSpeedTestController;
 		private Autodetector autodetector;
 
 		private string remoteHost;
