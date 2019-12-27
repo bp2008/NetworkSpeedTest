@@ -28,8 +28,10 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
+			System.Windows.Forms.ListViewItem listViewItem1 = new System.Windows.Forms.ListViewItem(new string[] {
+            "Test",
+            "Test Host 1"}, -1);
 			this.lvRemoteHosts = new System.Windows.Forms.ListView();
-			this.label1 = new System.Windows.Forms.Label();
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.rbSeconds15 = new System.Windows.Forms.RadioButton();
 			this.rbSeconds10 = new System.Windows.Forms.RadioButton();
@@ -47,12 +49,13 @@
 			this.label3 = new System.Windows.Forms.Label();
 			this.lblCurrentDownload = new System.Windows.Forms.Label();
 			this.lblCurrentUpload = new System.Windows.Forms.Label();
-			this.nsgCurrent = new NetworkSpeedTest.NetworkSpeedGraph();
 			this.testHistory = new System.Windows.Forms.FlowLayoutPanel();
 			this.panel3 = new System.Windows.Forms.Panel();
 			this.rbUploadTest = new System.Windows.Forms.RadioButton();
 			this.rbDownloadTest = new System.Windows.Forms.RadioButton();
 			this.rbDuplexTest = new System.Windows.Forms.RadioButton();
+			this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+			this.nsgCurrent = new NetworkSpeedTest.NetworkSpeedGraph();
 			this.panel1.SuspendLayout();
 			this.panel2.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.nudTcpStreams)).BeginInit();
@@ -62,24 +65,20 @@
 			// 
 			// lvRemoteHosts
 			// 
+			this.lvRemoteHosts.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
+            this.columnHeader1});
+			this.lvRemoteHosts.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
 			this.lvRemoteHosts.HideSelection = false;
-			this.lvRemoteHosts.Location = new System.Drawing.Point(12, 25);
+			this.lvRemoteHosts.Items.AddRange(new System.Windows.Forms.ListViewItem[] {
+            listViewItem1});
+			this.lvRemoteHosts.Location = new System.Drawing.Point(12, 7);
 			this.lvRemoteHosts.MultiSelect = false;
 			this.lvRemoteHosts.Name = "lvRemoteHosts";
-			this.lvRemoteHosts.Size = new System.Drawing.Size(186, 119);
+			this.lvRemoteHosts.Size = new System.Drawing.Size(186, 137);
 			this.lvRemoteHosts.TabIndex = 10;
 			this.lvRemoteHosts.UseCompatibleStateImageBehavior = false;
-			this.lvRemoteHosts.View = System.Windows.Forms.View.List;
+			this.lvRemoteHosts.View = System.Windows.Forms.View.Details;
 			this.lvRemoteHosts.SelectedIndexChanged += new System.EventHandler(this.lvRemoteHosts_SelectedIndexChanged);
-			// 
-			// label1
-			// 
-			this.label1.AutoSize = true;
-			this.label1.Location = new System.Drawing.Point(12, 7);
-			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(72, 13);
-			this.label1.TabIndex = 3;
-			this.label1.Text = "Remote Host:";
 			// 
 			// panel1
 			// 
@@ -295,14 +294,6 @@
 			this.lblCurrentUpload.TabIndex = 152;
 			this.lblCurrentUpload.Text = "0 Mbps";
 			// 
-			// nsgCurrent
-			// 
-			this.nsgCurrent.LegendEnabled = true;
-			this.nsgCurrent.Location = new System.Drawing.Point(204, 7);
-			this.nsgCurrent.Name = "nsgCurrent";
-			this.nsgCurrent.Size = new System.Drawing.Size(400, 110);
-			this.nsgCurrent.TabIndex = 100;
-			// 
 			// testHistory
 			// 
 			this.testHistory.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
@@ -363,6 +354,19 @@
 			this.rbDuplexTest.UseVisualStyleBackColor = true;
 			this.rbDuplexTest.CheckedChanged += new System.EventHandler(this.rbDuplexTest_CheckedChanged);
 			// 
+			// columnHeader1
+			// 
+			this.columnHeader1.Text = "Remote Host:";
+			this.columnHeader1.Width = 182;
+			// 
+			// nsgCurrent
+			// 
+			this.nsgCurrent.LegendEnabled = true;
+			this.nsgCurrent.Location = new System.Drawing.Point(204, 7);
+			this.nsgCurrent.Name = "nsgCurrent";
+			this.nsgCurrent.Size = new System.Drawing.Size(400, 110);
+			this.nsgCurrent.TabIndex = 100;
+			// 
 			// SpeedTestForm
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -375,11 +379,10 @@
 			this.Controls.Add(this.panel2);
 			this.Controls.Add(this.btnBeginTesting);
 			this.Controls.Add(this.panel1);
-			this.Controls.Add(this.label1);
 			this.Controls.Add(this.lvRemoteHosts);
 			this.Controls.Add(this.nsgCurrent);
 			this.MaximumSize = new System.Drawing.Size(627, 999999);
-			this.MinimumSize = new System.Drawing.Size(627, 0);
+			this.MinimumSize = new System.Drawing.Size(627, 39);
 			this.Name = "SpeedTestForm";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
 			this.Text = "SpeedTestForm";
@@ -401,7 +404,6 @@
 
 		private NetworkSpeedGraph nsgCurrent;
 		private System.Windows.Forms.ListView lvRemoteHosts;
-		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.Panel panel1;
 		private System.Windows.Forms.RadioButton rbSeconds15;
 		private System.Windows.Forms.RadioButton rbSeconds10;
@@ -424,5 +426,6 @@
 		private System.Windows.Forms.RadioButton rbUploadTest;
 		private System.Windows.Forms.RadioButton rbDownloadTest;
 		private System.Windows.Forms.RadioButton rbDuplexTest;
+		private System.Windows.Forms.ColumnHeader columnHeader1;
 	}
 }

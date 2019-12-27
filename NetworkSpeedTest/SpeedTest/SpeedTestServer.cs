@@ -158,12 +158,19 @@ namespace NetworkSpeedTest.SpeedTest
 
 						if (tcpListenPort > 0 && udpListenPort > 0)
 						{
-							byte[] autodetectBroadcastPacket = new byte["SpeedTestServer0".Length + 4];
-							ByteUtil.WriteUtf8("SpeedTestServer0", autodetectBroadcastPacket, 0);
-							ByteUtil.WriteUInt16((ushort)tcpListenPort, autodetectBroadcastPacket, autodetectBroadcastPacket.Length - 4);
-							ByteUtil.WriteUInt16((ushort)udpListenPort, autodetectBroadcastPacket, autodetectBroadcastPacket.Length - 2);
 							lock (autodetectBroadcasterLock)
-								autodetectBroadcaster.Broadcast(autodetectBroadcastPacket);
+								autodetectBroadcaster.Broadcast(nic =>
+								{
+									using (MemoryStream ms = new MemoryStream())
+									{
+										ByteUtil.WriteUtf8("SpeedTestServer1", ms);
+										ByteUtil.WriteUInt16((ushort)tcpListenPort, ms);
+										ByteUtil.WriteUInt16((ushort)udpListenPort, ms);
+										ByteUtil.WriteInt64(nic.Speed, ms);
+										ByteUtil.WriteUtf8_16(Environment.MachineName, ms);
+										return ms.ToArray();
+									}
+								});
 						}
 					}
 				}

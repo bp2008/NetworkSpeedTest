@@ -24,7 +24,7 @@ namespace NetworkSpeedTest.SpeedTest
 		public Autodetector(ListView lvServers)
 		{
 			this.lvServers = lvServers;
-			lvServers.Clear();
+			lvServers.Items.Clear();
 		}
 
 		private void BroadcastReceiver_PacketReceived(object sender, UdpPacket e)
@@ -54,6 +54,35 @@ namespace NetworkSpeedTest.SpeedTest
 						ServerListUpdated();
 					}
 				}
+				else if (introductionStr == "SpeedTestServer1")
+				{
+					if (e.Data.Length > 20)
+					{
+						string host = e.Sender.Address.ToString();
+						int offset = 16;
+						ushort tcpPort = ByteUtil.ReadUInt16(e.Data, offset);
+						offset += 2;
+						ushort udpPort = ByteUtil.ReadUInt16(e.Data, offset);
+						offset += 2;
+						long speed = ByteUtil.ReadInt64(e.Data, offset);
+						offset += 8;
+						string machineName = ByteUtil.ReadUtf8_16(e.Data, offset, out ushort strLen);
+						offset += 2 + strLen;
+
+						lock (servers)
+						{
+							RemoteSpeedTestServer server = servers.Find(s => s.host == host && s.tcpPort == tcpPort && s.udpPort == udpPort);
+							//if (server == null)
+							{
+								server = new RemoteSpeedTestServer(host, tcpPort, udpPort, speed, machineName);
+								servers.Add(server);
+							}
+							//else
+							//	server.time = DateTime.Now;
+						}
+						ServerListUpdated();
+					}
+				}
 			}
 		}
 
@@ -63,17 +92,23 @@ namespace NetworkSpeedTest.SpeedTest
 				lvServers.Invoke((Action)ServerListUpdated);
 			else
 			{
-				foreach (RemoteSpeedTestServer server in servers)
+				lock (servers)
 				{
-					if (!serverToListViewItem.TryGetValue(server, out ListViewItem existingListItem))
+					foreach (RemoteSpeedTestServer server in servers)
 					{
-						serverToListViewItem[server] = existingListItem = new ListViewItem();
-						existingListItem.Tag = server;
-						lvServers.Items.Add(existingListItem);
-						if (lvServers.Items.Count == 1)
-							existingListItem.Selected = true;
+						if (!serverToListViewItem.TryGetValue(server, out ListViewItem existingListItem))
+						{
+							serverToListViewItem[server] = existingListItem = new ListViewItem();
+							existingListItem.Tag = server;
+							lvServers.Items.Add(existingListItem);
+							if (lvServers.Items.Count == 1)
+								existingListItem.Selected = true;
+							existingListItem.SubItems.Add(server.ToString());
+						}
+						existingListItem.SubItems[0].Text = server.ToString();
+						existingListItem.Text = server.ToString();
 					}
-					existingListItem.Text = server.ToString();
+
 				}
 			}
 		}

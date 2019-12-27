@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BPUtil;
+using System;
 
 namespace NetworkSpeedTest.SpeedTest
 {
@@ -7,6 +8,8 @@ namespace NetworkSpeedTest.SpeedTest
 		public readonly string host;
 		public readonly ushort tcpPort;
 		public readonly ushort udpPort;
+		public readonly long speed;
+		public readonly string machineName;
 		public DateTime time = DateTime.Now;
 
 		public RemoteSpeedTestServer(string host, ushort tcpPort, ushort udpPort)
@@ -14,6 +17,12 @@ namespace NetworkSpeedTest.SpeedTest
 			this.host = host;
 			this.tcpPort = tcpPort;
 			this.udpPort = udpPort;
+		}
+
+		public RemoteSpeedTestServer(string host, ushort tcpPort, ushort udpPort, long speed, string machineName) : this(host, tcpPort, udpPort)
+		{
+			this.speed = speed;
+			this.machineName = machineName;
 		}
 
 		public int CompareTo(RemoteSpeedTestServer other)
@@ -48,7 +57,12 @@ namespace NetworkSpeedTest.SpeedTest
 		}
 		public override string ToString()
 		{
-			return host + " (Age: " + (DateTime.Now - time).TotalSeconds.ToString("0") + ")";
+			double ageSeconds = (DateTime.Now - time).TotalSeconds;
+			string age = ageSeconds > 5 ? " (Age: " + ageSeconds.ToString("0") + ")" : "";
+			if (speed == 0 && machineName == null)
+				return host + age;
+
+			return machineName + " " + StringUtil.FormatNetworkBits(speed) + "ps " + "(" + host + ")" + age;
 		}
 	}
 }
