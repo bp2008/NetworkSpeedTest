@@ -32,6 +32,7 @@
             "Test",
             "Test Host 1"}, -1);
 			this.lvRemoteHosts = new System.Windows.Forms.ListView();
+			this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.panel1 = new System.Windows.Forms.Panel();
 			this.rbSeconds15 = new System.Windows.Forms.RadioButton();
 			this.rbSeconds10 = new System.Windows.Forms.RadioButton();
@@ -54,8 +55,8 @@
 			this.rbUploadTest = new System.Windows.Forms.RadioButton();
 			this.rbDownloadTest = new System.Windows.Forms.RadioButton();
 			this.rbDuplexTest = new System.Windows.Forms.RadioButton();
-			this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.nsgCurrent = new NetworkSpeedTest.NetworkSpeedGraph();
+			this.btnAddHost = new System.Windows.Forms.Button();
 			this.panel1.SuspendLayout();
 			this.panel2.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.nudTcpStreams)).BeginInit();
@@ -80,6 +81,11 @@
 			this.lvRemoteHosts.View = System.Windows.Forms.View.Details;
 			this.lvRemoteHosts.SelectedIndexChanged += new System.EventHandler(this.lvRemoteHosts_SelectedIndexChanged);
 			// 
+			// columnHeader1
+			// 
+			this.columnHeader1.Text = "Remote Host:";
+			this.columnHeader1.Width = 182;
+			// 
 			// panel1
 			// 
 			this.panel1.Controls.Add(this.rbSeconds15);
@@ -87,7 +93,7 @@
 			this.panel1.Controls.Add(this.rbSeconds5);
 			this.panel1.Controls.Add(this.rbSeconds3);
 			this.panel1.Controls.Add(this.label2);
-			this.panel1.Location = new System.Drawing.Point(12, 150);
+			this.panel1.Location = new System.Drawing.Point(12, 179);
 			this.panel1.Name = "panel1";
 			this.panel1.Size = new System.Drawing.Size(186, 40);
 			this.panel1.TabIndex = 4;
@@ -151,7 +157,7 @@
 			// 
 			// btnBeginTesting
 			// 
-			this.btnBeginTesting.Location = new System.Drawing.Point(12, 366);
+			this.btnBeginTesting.Location = new System.Drawing.Point(12, 395);
 			this.btnBeginTesting.Name = "btnBeginTesting";
 			this.btnBeginTesting.Size = new System.Drawing.Size(186, 45);
 			this.btnBeginTesting.TabIndex = 60;
@@ -169,7 +175,7 @@
 			this.panel2.Controls.Add(this.rbUDP);
 			this.panel2.Controls.Add(this.rbTCP);
 			this.panel2.Controls.Add(this.label3);
-			this.panel2.Location = new System.Drawing.Point(12, 196);
+			this.panel2.Location = new System.Drawing.Point(12, 225);
 			this.panel2.Name = "panel2";
 			this.panel2.Size = new System.Drawing.Size(186, 125);
 			this.panel2.TabIndex = 7;
@@ -304,7 +310,7 @@
 			this.testHistory.FlowDirection = System.Windows.Forms.FlowDirection.BottomUp;
 			this.testHistory.Location = new System.Drawing.Point(204, 123);
 			this.testHistory.Name = "testHistory";
-			this.testHistory.Size = new System.Drawing.Size(395, 289);
+			this.testHistory.Size = new System.Drawing.Size(395, 318);
 			this.testHistory.TabIndex = 153;
 			this.testHistory.WrapContents = false;
 			// 
@@ -313,7 +319,7 @@
 			this.panel3.Controls.Add(this.rbUploadTest);
 			this.panel3.Controls.Add(this.rbDownloadTest);
 			this.panel3.Controls.Add(this.rbDuplexTest);
-			this.panel3.Location = new System.Drawing.Point(12, 331);
+			this.panel3.Location = new System.Drawing.Point(12, 360);
 			this.panel3.Name = "panel3";
 			this.panel3.Size = new System.Drawing.Size(186, 24);
 			this.panel3.TabIndex = 50;
@@ -354,11 +360,6 @@
 			this.rbDuplexTest.UseVisualStyleBackColor = true;
 			this.rbDuplexTest.CheckedChanged += new System.EventHandler(this.rbDuplexTest_CheckedChanged);
 			// 
-			// columnHeader1
-			// 
-			this.columnHeader1.Text = "Remote Host:";
-			this.columnHeader1.Width = 182;
-			// 
 			// nsgCurrent
 			// 
 			this.nsgCurrent.LegendEnabled = true;
@@ -367,11 +368,22 @@
 			this.nsgCurrent.Size = new System.Drawing.Size(400, 110);
 			this.nsgCurrent.TabIndex = 100;
 			// 
+			// btnAddHost
+			// 
+			this.btnAddHost.Location = new System.Drawing.Point(12, 150);
+			this.btnAddHost.Name = "btnAddHost";
+			this.btnAddHost.Size = new System.Drawing.Size(186, 23);
+			this.btnAddHost.TabIndex = 154;
+			this.btnAddHost.Text = "Add Host";
+			this.btnAddHost.UseVisualStyleBackColor = true;
+			this.btnAddHost.Click += new System.EventHandler(this.btnAddHost_Click);
+			// 
 			// SpeedTestForm
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(611, 423);
+			this.ClientSize = new System.Drawing.Size(611, 452);
+			this.Controls.Add(this.btnAddHost);
 			this.Controls.Add(this.panel3);
 			this.Controls.Add(this.testHistory);
 			this.Controls.Add(this.lblCurrentUpload);
@@ -427,5 +439,6 @@
 		private System.Windows.Forms.RadioButton rbDownloadTest;
 		private System.Windows.Forms.RadioButton rbDuplexTest;
 		private System.Windows.Forms.ColumnHeader columnHeader1;
+		private System.Windows.Forms.Button btnAddHost;
 	}
 }

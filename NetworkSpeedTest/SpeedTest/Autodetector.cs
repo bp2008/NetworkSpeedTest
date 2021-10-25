@@ -96,21 +96,26 @@ namespace NetworkSpeedTest.SpeedTest
 				{
 					foreach (RemoteSpeedTestServer server in servers)
 					{
-						if (!serverToListViewItem.TryGetValue(server, out ListViewItem existingListItem))
-						{
-							serverToListViewItem[server] = existingListItem = new ListViewItem();
-							existingListItem.Tag = server;
-							lvServers.Items.Add(existingListItem);
-							if (lvServers.Items.Count == 1)
-								existingListItem.Selected = true;
-							existingListItem.SubItems.Add(server.ToString());
-						}
-						existingListItem.SubItems[0].Text = server.ToString();
-						existingListItem.Text = server.ToString();
+						AddOrUpdate(server);
 					}
 
 				}
 			}
+		}
+
+		private void AddOrUpdate(RemoteSpeedTestServer server)
+		{
+			if (!serverToListViewItem.TryGetValue(server, out ListViewItem existingListItem))
+			{
+				serverToListViewItem[server] = existingListItem = new ListViewItem();
+				existingListItem.Tag = server;
+				lvServers.Items.Add(existingListItem);
+				if (lvServers.Items.Count == 1)
+					existingListItem.Selected = true;
+				existingListItem.SubItems.Add(server.ToString());
+			}
+			existingListItem.SubItems[0].Text = server.ToString();
+			existingListItem.Text = server.ToString();
 		}
 
 		public void Start()
@@ -148,6 +153,11 @@ namespace NetworkSpeedTest.SpeedTest
 
 			triggerBroadcastsThread?.Abort();
 			triggerBroadcastsThread = null;
+		}
+		public void AddManual(string hostname, ushort tcpPort, ushort udpPort)
+		{
+			RemoteSpeedTestServer server = new RemoteSpeedTestServer(hostname, tcpPort, udpPort);
+			AddOrUpdate(server);
 		}
 	}
 }

@@ -34,6 +34,9 @@ namespace NetworkSpeedTest
 		{
 			InitializeComponent();
 
+			ServiceWrapper.PortsBound += ServiceWrapper_PortsBound;
+			ServiceWrapper_PortsBound(null, null);
+
 			autodetector = new Autodetector(this.lvRemoteHosts);
 			autodetector.Start();
 
@@ -61,6 +64,19 @@ namespace NetworkSpeedTest
 			originalListviewBack = lvRemoteHosts.BackColor;
 		}
 
+		private void btnAddHost_Click(object sender, EventArgs e)
+		{
+			InputDialog txtInput = new InputDialog("Add Host", "Enter \"hostname:tcpPort:udpPort\"");
+			if (txtInput.ShowDialog() == DialogResult.OK)
+			{
+				string[] parts = txtInput.InputText.Split(':');
+				if (parts.Length == 3 && parts[0].Length > 0 && ushort.TryParse(parts[1], out ushort tcpPort) && ushort.TryParse(parts[2], out ushort udpPort))
+					autodetector.AddManual(parts[0], tcpPort, udpPort);
+				else
+					MessageBox.Show("Invalid input.  Input must match the pattern \"hostname:tcpPort:udpPort\"");
+			}
+		}
+
 		private void NewBackgroundWorker()
 		{
 			bwSpeedTestController = new BackgroundWorker();
@@ -75,6 +91,23 @@ namespace NetworkSpeedTest
 		{
 			autodetector?.Stop();
 			bwSpeedTestController?.CancelAsync();
+			ServiceWrapper.PortsBound -= ServiceWrapper_PortsBound;
+		}
+
+		private void ServiceWrapper_PortsBound(object sender, EventArgs e)
+		{
+			if (ServiceWrapper.tcpPort == 0 && ServiceWrapper.udpPort == 0)
+				SetTitle("Speed Test (local server not listening)");
+			else
+				SetTitle("Speed Test listening on tcp:" + ServiceWrapper.tcpPort + ", udp:" + ServiceWrapper.udpPort);
+		}
+
+		private void SetTitle(string str)
+		{
+			if (InvokeRequired)
+				Invoke((Action<string>)SetTitle, str);
+			else
+				Text = str;
 		}
 
 		#region Form Input Handling

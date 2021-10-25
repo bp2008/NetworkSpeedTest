@@ -24,6 +24,10 @@ namespace NetworkSpeedTest.SpeedTest
 
 		private GlobalUdpBroadcaster autodetectBroadcaster;
 		private object autodetectBroadcasterLock = new object();
+		/// <summary>
+		/// Event is raised when tcp and udp listener sockets are bound and the properties <see cref="tcpListenPort"/> and <see cref="udpListenPort"/> contain updated values.
+		/// </summary>
+		public event EventHandler PortsBound = delegate { };
 
 		public int tcpListenPort { get; private set; } = 0;
 		public int udpListenPort { get; private set; } = 0;
@@ -72,6 +76,8 @@ namespace NetworkSpeedTest.SpeedTest
 							{
 								tcpListenPort = ((IPEndPoint)tcpListener.LocalEndpoint).Port;
 								udpListenPort = ((IPEndPoint)udpListener.Client.LocalEndPoint).Port;
+
+								PortsBound(this, new EventArgs());
 
 								try
 								{
