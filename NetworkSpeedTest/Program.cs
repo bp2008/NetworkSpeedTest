@@ -2,6 +2,7 @@
 using BPUtil.Forms;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.ServiceProcess;
 using System.Text;
@@ -28,6 +29,7 @@ namespace NetworkSpeedTest
 
 				ButtonDefinition btnStartTemporary = new ButtonDefinition("Start Temporary Instance", btnStartTemporary_Click);
 				ButtonDefinition btnPort = new ButtonDefinition("Web Port: " + config.port, btnPort_Click);
+				ButtonDefinition btnOpenWebInterface = new ButtonDefinition("Open Web Interface", btnOpenWebInterface_Click);
 
 #if DEBUG
 				if (System.Diagnostics.Debugger.IsAttached)
@@ -37,7 +39,7 @@ namespace NetworkSpeedTest
 				}
 #endif
 
-				ButtonDefinition[] customButtons = new ButtonDefinition[] { btnStartTemporary, btnPort };
+				ButtonDefinition[] customButtons = new ButtonDefinition[] { btnStartTemporary, btnPort, btnOpenWebInterface };
 
 
 
@@ -69,7 +71,7 @@ namespace NetworkSpeedTest
 					config.port = port;
 					config.Save();
 
-					((Button)sender).Text = "Port: " + port;
+					((Button)sender).Text = "Web Port: " + port;
 					MessageBox.Show("The web server port number has been changed to " + port + "." + Environment.NewLine + Environment.NewLine
 						+ "Please restart the service or temporary instance for the change to take effect.");
 				}
@@ -90,6 +92,10 @@ namespace NetworkSpeedTest
 				ServiceWrapper.Stop();
 				btn.Text = "Start Temporary Instance";
 			}
+		}
+		private static void btnOpenWebInterface_Click(object sender, EventArgs e)
+		{
+			Process.Start("http://127.0.0.1:" + config.port);
 		}
 	}
 }

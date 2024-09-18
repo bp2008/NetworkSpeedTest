@@ -49,8 +49,8 @@ namespace NetworkSpeedTest
 				Stop();
 				Thread.Sleep(500);
 			}
-			ws = new WebServer(Program.config.port);
-			ws.Start();
+			ws = new WebServer();
+			ws.SetBindings(Program.config.port, Program.config.port);
 
 			sts = new SpeedTestServer();
 			sts.PortsBound += Sts_PortsBound;

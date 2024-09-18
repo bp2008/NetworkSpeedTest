@@ -12,6 +12,12 @@
 		body
 		{
 			font-family: sans-serif;
+			margin: 0px;
+		}
+
+		.componentBody
+		{
+			margin: 8px;
 		}
 
 		input[type="button"]
@@ -22,27 +28,93 @@
 			cursor: pointer;
 		}
 
-		.start
+		.pingError
+		{
+			position: sticky;
+			top: 0px;
+			width: 100vw;
+			padding: 10px;
+			border-bottom: 2px solid black;
+			margin-bottom: 8px;
+			background-color: #FFFFFF;
+			color: #CC0000;
+		}
+
+		.green
 		{
 			background-color: #009900;
 			color: #FFFFFF;
 		}
 
-			.start:hover
+			.green:hover
 			{
 				background-color: #33CC33;
 			}
 
-		.stop
+		.red
 		{
 			background-color: #CC0000;
 			color: #FFFFFF;
 		}
 
-			.stop:hover
+			.red:hover
 			{
 				background-color: #FF3333;
 			}
+
+		.blue
+		{
+			background-color: #0000CC;
+			color: #FFFFFF;
+		}
+
+			.blue:hover
+			{
+				background-color: #3333FF;
+			}
+
+		.yellow
+		{
+			background-color: #CCCC00;
+			color: #000000;
+		}
+
+			.yellow:hover
+			{
+				background-color: #FFFF33;
+				color: #000000;
+			}
+
+		.orange
+		{
+			background-color: #CC7700;
+			color: #FFFFFF;
+		}
+
+			.orange:hover
+			{
+				background-color: #FFCC00;
+				color: #000000;
+			}
+
+		.lightBlue
+		{
+			background-color: #6666CC;
+			color: #FFFFFF;
+		}
+
+			.lightBlue:hover
+			{
+				background-color: #9999FF;
+			}
+
+		input[type="button"]:disabled
+		{
+			background-color: #999999;
+			color: rgba(0,0,0,0.4);
+			cursor: default;
+		}
+
 
 		.section
 		{
@@ -60,9 +132,11 @@
 			margin-top: 20px;
 			font-family: consolas;
 			color: #000000;
-			font-size: 10px;
+			font-size: 14px;
 			pointer-events: none;
 			border: 1px solid black;
+			right: px;
+			left: auto !important;
 		}
 
 		.chartWrapper
@@ -77,157 +151,429 @@
 			height: 200px;
 			font-size: 12pt;
 		}
+
+		li
+		{
+			margin-top: 0.5em;
+		}
 	</style>
-	<script type="text/javascript" src="smoothie.js"></script>
-	<script type="text/javascript" src="util.js"></script>
-	<script type="text/javascript" src="WebSocketStreamer.js"></script>
+	<script type="text/javascript" src="%%VUEJS%%?v=%%VERSION%%"></script>
+	<script type="text/javascript" src="smoothie.js?v=%%VERSION%%"></script>
+	<script type="text/javascript" src="util.js?v=%%VERSION%%"></script>
+	<script type="text/javascript" src="WebSocketStreamer.js?v=%%VERSION%%"></script>
 </head>
 
 <body>
-	<h1>Network Speed Test %%VERSION%%</h1>
-	<div class="section">
-		<div><input id="startBtn" type="button" onclick="StartSpeedTest()" value="Start Speed Test" class="start" /></div>
-		<div>&nbsp;</div>
-		<div class="chartWrapper"><canvas id="smoothie-chart"></div>
-		<div style="font-weight: bold;"><span style="color: #0000ff;">Blue: Download Mbps</span><!--, <span style="color: #ff8000;">Orange: Upload Mbps</span>--></div>
-		<div>&nbsp;</div>
-		<div>Download: <span id="dlRate">…</span></div>
-		<div>Upload speed testing is currently unavailable.</div>
-	</div>
-	<div class="section">
-		<h3>Nerdy Metadata</h3>
-		<div>Data Downloaded (this test): <span id="dlDataThis">…</span></div>
-		<div>Data Downloaded (overall): <span id="dlDataOverall">…</span></div>
-	</div>
-	<div class="section">
-		<h3>Advanced Options</h3>
-		<div><label>Connection Count: <input id="connectionCount" type="number" min="1" max="6" value="1" /></label></div>
-		<div><label>Test Duration: <input id="testSec" type="number" min="1" max="30" value="5" /> (seconds)</label></div>
-	</div>
-	<script type="text/javascript">
-		var streamers = [];
-		var speedTestActive = false;
+	<div id="vueRoot">
+		<div class="pingError" v-if="pingError">Latency measurement WebSocket error: {{pingError}}</div>
+		<div class="componentBody">
+			<h1>Network Speed Test %%VERSION%%</h1>
+			<div class="section">
+				<h3>Test Control</h3>
+				<div class="TestButtons">
+					<template v-if="testRunning">
+						<input type="button" v-on:click="StartSpeedTest()" value="Stop Test" class="blue" /> {{testProgress}}
+					</template>
+					<template v-else>
+						<input type="button" v-on:click="StartSpeedTest(true)" value="Download" class="blue" />
+						<input type="button" v-on:click="StartSpeedTest(false, true)" value="Upload" class="orange" />
+						<input type="button" v-on:click="StartSpeedTest(true, true)" value="Both" class="green" />
+					</template>
+				</div>
+				<div>&nbsp;</div>
+				<div class="chartWrapper"><canvas id="smoothie-chart"></div>
+				<div style="font-weight: bold;"><span style="color: #0000ff;">Blue: Download Mbps</span>, <span style="color: #ff8000;">Orange: Upload Mbps</span></div>
+				<div>&nbsp;</div>
+				<speedometer :upload-speed="uploadSpeedMeterValue" :download-speed="downloadSpeedMeterValue" :max-speed="maxSpeedMeterValue" :size="200"></speedometer>
+				<div>&nbsp;</div>
+				<div>Download: <span>{{dlRate}}</span></div>
+				<div>Upload: <span>{{ulRate}}</span></div>
+				<div>Latency: <span>{{pingResponseTimeMs}} ms</span></div>
+				<div>&nbsp;</div>
+				<div>Test Progress: <span></span></div>
+			</div>
+			<div class="section">
+				<h3>Nerdy Metadata</h3>
+				<div>Data Downloaded (this test): {{formatBytes10(dlThis)}}</div>
+				<div>Data Downloaded (overall): {{formatBytes10(dlOverall)}}</div>
+				<div>Data Uploaded (this test): {{formatBytes10(ulThis)}}</div>
+				<div>Data Uploaded (overall): {{formatBytes10(ulOverall)}}</div>
+				<div>
+					<input type="button" v-on:click="ClearCounters()" value="Clear Counters" class="red" :disabled="testRunning" />
+				</div>
+			</div>
+			<div class="section">
+				<h3>Advanced Options</h3>
+				<div><label>Connection Count: <input type="range" min="1" max="5" v-model="connectionCount" :disabled="testRunning" /></label> {{connectionCount}}</div>
+				<div><label>Test Duration: <input type="range" min="1" max="30" v-model="testSeconds" :disabled="testRunning" /> {{testSeconds}} seconds</label></div>
+				<div><label>Message Size: <input type="range" min="125" max="1000000" v-model="messageSize" :disabled="testRunning" /> {{messageSizeInXBits}} ({{messageSizeInXBytes10}})</label></div>
+				<div>Message Size Presets (in kilobits or megabits): </div>
+				<div class="messageSizeButtons">
+					<input type="button" value="1 Kb" @click="messageSize=125" class="lightBlue" :disabled="testRunning" />
+					<input type="button" value="100 Kb" @click="messageSize=12500" class="lightBlue" :disabled="testRunning" />
+					<input type="button" value="500 Kb" @click="messageSize=62500" class="blue" :disabled="testRunning" />
+					<input type="button" value="1 Mb" @click="messageSize=125000" class="blue" :disabled="testRunning" />
+					<input type="button" value="2 Mb" @click="messageSize=250000" class="blue" :disabled="testRunning" />
+					<input type="button" value="4 Mb" @click="messageSize=500000" class="yellow" :disabled="testRunning" />
+					<input type="button" value="8 Mb" @click="messageSize=1000000" class="yellow" :disabled="testRunning" />
+				</div>
+			</div>
+			<div class="section">
+				<h3>Notes</h3>
+				<div>
+					<ul>
+						<li>Message size determines the size of WebSocket messages used for speed testing.  A larger message size may achieve higher throughput, but reduces the precision of your test results.</li>
+						<li>Latency to the speed testing server is measured and displayed while this page is open, but latency results are not currently logged or graphed and are meant to be viewed in realtime.</li>
+						<li>Data used for latency measurement is less than 1 Kbps in each direction and is not included in the displayed measurements on this page.</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+		<script type="text/javascript">
 		var startedGraph = false;
-		var abortTimeout = null;
+		var guiRefreshRateFPS = 15;
+		var countPingsAsMeasuredBandwidth = false;
 
-		var lastStatusUpdate = 0;
-		var dlTotalBytes = 0;
+		var dlOverallBytes = 0;
 		var dlThisBytes = 0;
-		var dlBytesAtLastStatusUpdate = 0;
-		var dlBpsSlices = [];
-		var activeTime = 0;
+		var ulOverallBytes = 0;
+		var ulThisBytes = 0;
 
-		var ele_dlRate = document.getElementById("dlRate");
-		var ele_dlDataThis = document.getElementById("dlDataThis");
-		var ele_dlDataOverall = document.getElementById("dlDataOverall");
+		var bitRateCalc_DL = new BitRateCalculator();
+		var bitRateCalc_UL = new BitRateCalculator();
 
-		var chart;
-		var chartCanvas = document.getElementById('smoothie-chart');
-		var seriesDownload = new TimeSeries();
-		var seriesUpload = new TimeSeries();
-
-		function StartSpeedTest()
-		{
-			if (speedTestActive)
+		var app = null;
+		app = new Vue({
+			el: '#vueRoot',
+			data: function ()
 			{
-				AbortSpeedTest();
-				return;
-			}
-
-			var startBtn = document.getElementById("startBtn");
-			startBtn.value = "Stop Speed Test";
-			startBtn.classList = ["stop"];
-
-			ele_dlRate.innerText = "…";
-			ele_dlDataThis.innerText = "0B"
-
-			dlThisBytes = 0;
-			dlBytesAtLastStatusUpdate = 0;
-			dlBpsSlices = [];
-			lastStatusUpdate = performance.now();
-			speedTestActive = true;
-			if (!startedGraph)
+				return {
+					dlRate: "…",
+					ulRate: "…",
+					dlThis: 0,
+					ulThis: 0,
+					dlOverall: 0,
+					ulOverall: 0,
+					streamers: [null], // The 0th element of the streamers array is reserved for a websocket that is used only for pinging / latency measurement.
+					connectionCount: 1,
+					testSeconds: 5,
+					messageSize: 62500,
+					bufferOutgoingBytes: 10 * 1000 * 1000, // 10 MB outgoing buffer per connection
+					testRunning: false,
+					abortTimeout: null,
+					guiRefreshInterval: null,
+					testStartedAt: 0,
+					testProgress: "idle",
+					uploadMessage: null,
+					activeTime: 0,
+					lastStatusUpdate: 0,
+					chart: null,
+					chartCanvas: document.getElementById('smoothie-chart'),
+					seriesDownload: new TimeSeries(),
+					seriesUpload: new TimeSeries(),
+					uploadSpeedMeterValue: 50,
+					downloadSpeedMeterValue: 100,
+					maxSpeedMeterIndex: 0,
+					maxSpeedMeterTable: [1*1000*1000, 10*1000*1000, 100*1000*1000, 1*1000*1000*1000, 5*1000*1000*1000, 10*1000*1000*1000, 25*1000*1000*1000, 50*1000*1000*1000, 100*1000*1000*1000],
+					pingSentAt: 0,
+					pingExpireTimeout: null,
+					nextPingTimeout: null,
+					pingReconnectTimeout: null,
+					pingCounter: -1,
+					pingResponseTimeMs: "…",
+					pingError: ""
+				};
+			},
+			created: function ()
 			{
-				startedGraph = true;
-				chart.streamTo(chartCanvas, 100);
-			}
-
-			streamers = [];
-			var connectionCount = parseInt(document.getElementById("connectionCount").value);
-			if (connectionCount < 1)
-				connectionCount = 1;
-			if (connectionCount > 6)
-				connectionCount = 6;
-			for (var i = 0; i < connectionCount; i++)
-				AddStreamer();
-
-			var testSec = parseInt(document.getElementById("testSec").value);
-			abortTimeout = setTimeout(function ()
+			},
+			mounted: function()
 			{
-				AbortSpeedTest();
-			}, testSec * 1000);
-		}
-		function StatusUpdate()
-		{
-			var now = performance.now();
-			var elapsedMsSinceLastUpdate = now - lastStatusUpdate;
-			activeTime += elapsedMsSinceLastUpdate;
-
-			var dlBytes = (dlThisBytes - dlBytesAtLastStatusUpdate);
-			var dlBits = dlBytes * 8;
-			var dlBps = (1000 / elapsedMsSinceLastUpdate) * dlBits;
-			var dlMbps = dlBps / 1000000;
-			dlBpsSlices.push(dlBps);
-
-			ele_dlRate.innerText = formatBitsPerSecond(dlBps);
-			ele_dlDataThis.innerText = formatBytes(dlThisBytes, 2);
-			ele_dlDataOverall.innerText = formatBytes(dlTotalBytes, 2);
-
-			seriesDownload.append(activeTime, dlMbps);
-
-			dlBytesAtLastStatusUpdate = dlThisBytes;
-			lastStatusUpdate = now;
-		}
-		function AbortSpeedTest()
-		{
-			clearTimeout(abortTimeout);
-			streamers.forEach(function (streamer, index)
+				this.startPinging();
+			},
+			computed:
 			{
-				streamer.StopStreaming();
-			});
-			streamers = [];
-
-			speedTestActive = false;
-			startBtn.value = "Start Speed Test";
-			startBtn.classList = ["start"];
-
-			var totalBpsSlices = 0;
-			dlBpsSlices.forEach(function (slice) { totalBpsSlices += slice; });
-			ele_dlRate.innerText = formatBitsPerSecond(totalBpsSlices / dlBpsSlices.length) + " (Averaged)";
-		}
-		function AddStreamer()
-		{
-			var testSec = parseInt(document.getElementById("testSec").value);
-			var streamer = new FetchDataStreamer("randomdata?testSec=" + testSec
-				, function (data) // On data received
+				startBtnText()
 				{
-					var length = data.length;
-					dlTotalBytes += length;
-					dlThisBytes += length;
-					if (performance.now() - lastStatusUpdate > 100)
-						StatusUpdate();
-				}
-				, function (message, wasAborted, responseError) // On stream ended
+					if (this.testRunning)
+						return "Stop Speed Test";
+					else
+						return "Start Speed Test";
+				},
+				startBtnClass()
 				{
-					AbortSpeedTest();
+					if (this.testRunning)
+						return "red";
+					else
+						return "green";
+				},
+				messageSizeInXBits()
+				{
+					return formatBits(this.messageSize * 8);
+				},
+				messageSizeInXBytes2()
+				{
+					return formatBytes2(this.messageSize);
+				},
+				messageSizeInXBytes10()
+				{
+					return formatBytes10(this.messageSize);
+				},
+				maxSpeedMeterValue()
+				{
+					return this.maxSpeedMeterTable[this.maxSpeedMeterIndex];
 				}
-				, ShowError);
-			streamers.push(streamer);
-		}
-		function ShowError(err)
-		{
-			console.error(err);
-		}
+			},
+			methods:
+			{
+				StartSpeedTest: function (testDownload, testUpload)
+				{
+					clearTimeout(this.uploadLoopTimeout);
+					clearTimeout(this.abortTimeout);
+					clearInterval(this.guiRefreshInterval);
+					this.testProgress = "idle";
+					if (this.testRunning)
+					{
+						for (var i = 1; i < this.streamers.length; i++)
+							this.streamers[i].Disconnect();
+						if (this.streamers.length > 1)
+							this.streamers.splice(1, this.streamers.length - 1);
+						this.testRunning = false;
+						return;
+					}
+					if (this.streamers.length > 1)
+						this.streamers.splice(1, this.streamers.length - 1);
+					dlThisBytes = 0;
+					ulThisBytes = 0;
+					bitRateCalc_DL = new BitRateCalculator();
+					bitRateCalc_UL = new BitRateCalculator();
+					var endpoint;
+					if (testDownload && testUpload)
+						endpoint = "/nstws_bidi?packetSize=" + this.messageSize;
+					else if (testDownload)
+						endpoint = "/nstws_dl?packetSize=" + this.messageSize;
+					else if (testUpload)
+						endpoint = "/nstws_ul";
+					else
+					{
+						alert("Application error. Please reload and try again.");
+						return;
+					}
+
+					this.startPinging();
+
+					var uploadMessageSize = ~~this.messageSize;
+					if (uploadMessageSize <= 125 + 6)
+						uploadMessageSize -= 6;
+					else if (uploadMessageSize <= 65535 + 8)
+						uploadMessageSize -= 8;
+					else
+						uploadMessageSize -= 14;
+					var randomBytes = new Uint8Array(uploadMessageSize);
+					for (var i = 0; i < uploadMessageSize; i++)
+						randomBytes[i] = Math.floor(Math.random() * 256);
+					this.uploadMessage = randomBytes;
+
+					if (!startedGraph)
+					{
+						startedGraph = true;
+
+						chart = new SmoothieChart(
+							{
+								grid:
+								{
+									fillStyle: '#ffffff'
+									, strokeStyle: '#b4b4b4'
+									, sharpLines: true
+									, millisPerLine: 1000
+									, verticalSections: 4
+									, borderVisible: false
+								}
+								, labels: { fillStyle: '#000000' }
+								, tooltip: true
+								, minValue: 0
+								, responsive: true
+								, scaleSmoothing: 1
+								, nonRealtimeData: true
+								, tooltipFormatter: tooltipFormatter
+							});
+
+						chart.addTimeSeries(this.seriesDownload, { lineWidth: 2, strokeStyle: '#0000ff', fillStyle: 'rgba(0,0,255,0.30)' });
+						chart.addTimeSeries(this.seriesUpload, { lineWidth: 2, strokeStyle: '#ff8000', fillStyle: 'rgba(255,128,0,0.30)' });
+						this.chartCanvas = document.getElementById('smoothie-chart');
+						chart.streamTo(this.chartCanvas, 1000 / guiRefreshRateFPS);
+					}
+
+					this.testStartedAt = this.lastStatusUpdate = performance.now();
+					this.testRunning = true;
+					for (var i = 0; i < this.connectionCount; i++)
+					{
+						var wss = new WebSocketStreamer(location.port, endpoint, this.packetReceived);
+						this.streamers.push(wss);
+						wss.Connect();
+					}
+					if (testUpload)
+						this.uploadLoopTimeout = setTimeout(this.uploadLoop, 0);
+					this.abortTimeout = setTimeout(this.StartSpeedTest, this.testSeconds * 1000);
+					this.guiRefreshInterval = setInterval(this.guiRefresh, 1000 / guiRefreshRateFPS);
+				},
+				packetReceived: function (data, totalDataLength)
+				{
+					bitRateCalc_DL.AddDataPoint(totalDataLength);
+					dlOverallBytes += totalDataLength;
+					dlThisBytes += totalDataLength;
+				},
+				formatBytes2: function (bytes, decimals)
+				{
+					return formatBytes2(bytes, decimals);
+				},
+				formatBytes10: function (bytes, decimals)
+				{
+					return formatBytes10(bytes, decimals);
+				},
+				formatBits: function (bits)
+				{
+					return formatBits(bits);
+				},
+				guiRefresh: function()
+				{
+					this.dlThis = dlThisBytes;
+					this.dlOverall = dlOverallBytes;
+					var dlBps = bitRateCalc_DL.GetBPS() * 8;
+					this.dlRate = formatBits(dlBps) + "ps";
+
+					// Determine how many bytes were sent between the last refresh and this one.
+					var ulThisBytesNow = 0;
+					var startLoopAt = countPingsAsMeasuredBandwidth ? 0 : 1;
+					for (var i = startLoopAt; i < this.streamers.length; i++)
+					{
+						var streamer = this.streamers[i];
+						ulThisBytesNow += streamer.getBytesSent();
+					}
+					var bytesSentSinceLastRefresh = ulThisBytesNow - ulThisBytes;
+					ulThisBytes += bytesSentSinceLastRefresh;
+					ulOverallBytes += bytesSentSinceLastRefresh;
+					this.ulThis = ulThisBytes;
+					this.ulOverall = ulOverallBytes;
+					bitRateCalc_UL.AddDataPoint(bytesSentSinceLastRefresh);
+
+					var ulBps = bitRateCalc_UL.GetBPS() * 8;
+					this.ulRate = formatBits(ulBps) + "ps";
+
+					var now = performance.now();
+					var elapsedMsSinceLastUpdate = now - this.lastStatusUpdate;
+					this.lastStatusUpdate = now;
+					this.activeTime += elapsedMsSinceLastUpdate;
+					this.seriesDownload.append(this.activeTime, dlBps / 1000000);
+					this.seriesUpload.append(this.activeTime, ulBps / 1000000);
+
+					var elapsed = (now - this.testStartedAt) / 1000;
+					var remaining = Math.ceil(this.testSeconds - elapsed);
+					var percent = Math.floor((elapsed / this.testSeconds) * 100);
+					this.testProgress = ~~elapsed + "/" + ~~this.testSeconds + "s (" + percent + "%)";
+
+					this.downloadSpeedMeterValue = dlBps;
+					this.uploadSpeedMeterValue = ulBps;
+					while ((dlBps >= this.maxSpeedMeterValue || ulBps >= this.maxSpeedMeterValue)
+							&& this.maxSpeedMeterIndex < this.maxSpeedMeterTable.length - 1)
+					{
+						this.maxSpeedMeterIndex++;
+					}
+				},
+				uploadLoop: function()
+				{
+					if (!this.testRunning)
+						return;
+					var messageSize = this.uploadMessage.length;
+					for (var i = 1; i < this.streamers.length; i++)
+					{
+						var streamer = this.streamers[i];
+						if (streamer.getReadyState() !== WebSocketState.Open)
+							continue;
+						while(streamer.getBufferedAmount() < this.bufferOutgoingBytes)
+							streamer.SendToWebSocket(this.uploadMessage);
+					}
+					this.uploadLoopTimeout = setTimeout(this.uploadLoop, 0);
+				},
+				ClearCounters: function()
+				{
+					this.dlOverall = dlOverallBytes = 0;
+					this.dlThis = dlThisBytes = 0;
+					this.ulThis = ulOverallBytes = 0;
+					this.ulOverall = ulThisBytes = 0;
+				},
+				sendPing: function()
+				{
+					clearTimeout(this.pingReconnectTimeout);
+					clearTimeout(this.nextPingTimeout);
+					clearTimeout(this.pingExpireTimeout);
+					this.pingCounter++;
+					var buf = UInt64ToUint8Array(this.pingCounter);
+					this.streamers[0].SendToWebSocket(buf);
+					this.pingSentAt = performance.now();
+					this.pingExpireTimeout = setTimeout(this.sendPing, 3000);
+				},
+				pongReceived: function(data, totalDataLength)
+				{
+					if (countPingsAsMeasuredBandwidth)
+						this.packetReceived(data, totalDataLength);
+
+					var now = performance.now();
+					var pongNumber = ReadUInt64(data);
+					// Do not use "===" here, as ReadUInt64 returns BigInt but pingCounter is an ordinary number so "===" will always evaluate to false.
+					if (pongNumber == this.pingCounter)
+					{
+						var responseTime = now - this.pingSentAt;
+						this.pingResponseTimeMs = Math.round(responseTime);
+						var timeBetweenPings = this.testRunning ? 500 : 1000;
+						var waitTimeMs = timeBetweenPings - this.pingResponseTimeMs;
+						if (waitTimeMs > 0)
+							this.nextPingTimeout = setTimeout(this.sendPing, waitTimeMs);
+						else
+							this.sendPing();
+					}
+				},
+				pingConnectionLost: function(event)
+				{
+					if (this.streamers[0] && (this.streamers[0].getReadyState() == WebSocketState.Closing || this.streamers[0].getReadyState() == WebSocketState.Closed))
+					{
+						clearTimeout(this.pingReconnectTimeout);
+						clearTimeout(this.nextPingTimeout);
+						clearTimeout(this.pingExpireTimeout);
+						this.pingError = "Latency measurement connection lost. Reconnecting…";
+						this.pingReconnectTimeout = setTimeout(this.startPinging, 1000);
+					}
+				},
+				startPinging: async function()
+				{
+					clearTimeout(this.pingReconnectTimeout);
+					clearTimeout(this.nextPingTimeout);
+					clearTimeout(this.pingExpireTimeout);
+
+					if (this.streamers[0])
+						this.streamers[0].Disconnect();
+					this.streamers[0] = null;
+
+					this.pingError = "";
+					var wss = new WebSocketStreamer(location.port, "/nstws_ping", this.pongReceived, this.pingConnectionLost);
+					this.streamers[0] = wss;
+					try
+					{
+						await wss.Connect();
+					}
+					catch(ex)
+					{
+						this.pingError = ex.message;
+						setTimeout(this.startPinging, 1000);
+						return;
+					}
+					this.sendPing();
+				}
+			},
+			watch:
+			{
+			}
+		});
 		function tooltipFormatter(timestamp, data)
 		{
 			var lines = [];
@@ -242,41 +588,69 @@
 				}
 				lines.push('<span style="color:' + data[i].series.options.strokeStyle + '">' +
 					label +
-					this.options.yMaxFormatter(data[i].value, this.options.labels.precision) + '</span>');
+					Math.round(data[i].value) + ' Mbps</span>');
 			}
 
 			return lines.join('<br>');
 		}
 
-		// Set up chart
-		chart = new SmoothieChart(
-			{
-				grid:
-				{
-					fillStyle: '#ffffff'
-					, strokeStyle: '#b4b4b4'
-					, sharpLines: true
-					, millisPerLine: 1000
-					, verticalSections: 4
-					, borderVisible: false
-				}
-				, labels: { fillStyle: '#000000' }
-				, tooltip: true
-				, minValue: 0
-				, responsive: true
-				, scaleSmoothing: 1
-				, nonRealtimeData: true
-				, tooltipFormatter: tooltipFormatter
-			});
-
-		chart.addTimeSeries(seriesDownload, { lineWidth: 2, strokeStyle: '#0000ff', fillStyle: 'rgba(0,0,255,0.30)' });
-		chart.addTimeSeries(seriesUpload, { lineWidth: 2, strokeStyle: '#ff8000', fillStyle: 'rgba(255,128,0,0.30)' });
-
-		var wss = new WebSocketStreamer(function (data) // Packet Received
+		function BitRateCalculator()
 		{
-			console.log(data);
-		});
-		wss.Connect();
-	</script>
+			var self = this;
+			var queue = new Queue();
+			this.averageOverMs = 1000;
+			var sum = 0;
+			this.AddDataPoint = function (bytes)
+			{
+				cleanup();
+				sum += bytes;
+				queue.enqueue(new BitRateDataPoint(bytes));
+			}
+			this.GetBPS = function ()
+			{
+				cleanup();
+				return sum / (self.averageOverMs / 1000);
+			}
+			var cleanup = function ()
+			{
+				var now = performance.now();
+				while (!queue.isEmpty() && now - queue.peek().time > self.averageOverMs)
+					sum -= queue.dequeue().bytes;
+			}
+		}
+		function BitRateDataPoint(bytes)
+		{
+			this.bytes = bytes;
+			this.time = performance.now();
+		}
+
+		function throttle(fn, delay)
+		{
+			var interval;
+			var queued;
+			return function ()
+			{
+				if (!interval)
+				{
+					fn.apply(this, arguments);
+					interval = setInterval(function ()
+					{
+						if (queued)
+						{
+							fn.apply(this, queued.args);
+							queued = null;
+						}
+						else
+						{
+							clearInterval(interval);
+							interval = null;
+						}
+					}, delay);
+				}
+				else
+					queued = { args: arguments };
+			};
+		}
+		</script>
 </body>
 </html>

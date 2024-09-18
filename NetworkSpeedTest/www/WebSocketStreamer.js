@@ -1,38 +1,50 @@
-﻿function WebSocketStreamer(packetReceived)
+﻿function WebSocketStreamer(port, endpoint, packetReceived, onClose)
 {
+	if (!port)
+		throw new Error("Undefined port number given to WebSocketStreamer");
+	if (!endpoint)
+		throw new Error("Undefined endpoint given to WebSocketStreamer");
 	var self = this;
 	var socket;
 	var ws_is_ready = false;
-	this.onStateChanged = null;
+	var totalBytesSent = 0;
+	var totalBytesReceived = 0;
 
 	this.Connect = function ()
 	{
-		socket = new WebSocket("ws" + (location.protocol === "https:" ? "s" : "") + "://" + location.hostname + ":" + location.port + "/nstws");
-		raiseStateChanged();
-		socket.binaryType = "arraybuffer";
-		socket.onopen = function (event)
+		return new Promise((resolve, reject) =>
 		{
-			console.info("WebSocket Open");
-			ws_is_ready = true;
-			raiseStateChanged();
-		};
-		socket.onclose = function (event)
-		{
-			var codeTranslation = TranslateWebSocketCloseCode(event.code);
-			var errmsg = "Code " + EscapeHTML(event.code + (event.reason ? " " + event.reason : "")) + "<br/>" + codeTranslation[0] + "<br/>" + codeTranslation[1];
-			console.info("WebSocket Closed", errmsg);
-			raiseStateChanged();
-		};
-		socket.onerror = function (event)
-		{
-			// We can't find out what the error was.  Yay web standards.
-			console.error("WebSocket Error");
-		};
-		socket.onmessage = function (event)
-		{
-			HandleWSMessage(event.data);
-		};
+			socket = new WebSocket("ws" + (location.protocol === "https:" ? "s" : "") + "://" + location.hostname + ":" + port + endpoint);
+			socket.binaryType = "arraybuffer";
+			socket.onopen = function (event)
+			{
+				console.log("WebSocket Open");
+				ws_is_ready = true;
+				resolve();
+			};
+			socket.onclose = function (event)
+			{
+				var codeTranslation = TranslateWebSocketCloseCode(event.code);
+				var errmsg = "Code " + EscapeHTML(event.code + (event.reason ? " " + event.reason : "")) + "\n"
+					+ codeTranslation[0] + "\n"
+					+ codeTranslation[1];
+				console.log("WebSocket Closed", errmsg);
+				if(typeof onClose === "function")
+					onClose(event);
+				reject(new Error(errmsg));
+			};
+			socket.onerror = function (event)
+			{
+				console.error("WebSocket Error");
+				reject(new Error("WebSocket Error"));
+			};
+			socket.onmessage = function (event)
+			{
+				HandleWSMessage(event.data);
+			};
+		});
 	};
+
 	this.Disconnect = function ()
 	{
 		socket.close();
@@ -40,144 +52,18 @@
 	};
 	var HandleWSMessage = function (data)
 	{
-		packetReceived(data);
-		//var cmdView = new Uint8Array(data, 0, 1);
-		//if (cmdView.length === 0)
-		//{
-		//	toaster.Warning("empty message from server");
-		//	return;
-		//}
-		//switch (cmdView[0])
-		//{
-		//	case Command.StartStreaming:
-		//		currentStreamId = Util.ReadByte(data, { offset: 1 });
-		//		console.log("Streaming Started: " + currentStreamId);
-		//		break;
-		//	case Command.StopStreaming:
-		//		toaster.Info("StopStreaming message received from server.");
-		//		break;
-		//	case Command.GetScreenCapture:
-		//		var streamId = Util.ReadByte(data, { offset: 1 });
-		//		if (streamId !== currentStreamId)
-		//		{
-		//			console.info("dropped frame from stream " + streamId + " because current stream is " + currentStreamId);
-		//			break;
-		//		}
-		//		if (typeof self.onFrameReceived === "function")
-		//			self.onFrameReceived(data);
-		//		//mainMenu.bytesThisSecond += data.byteLength;
-		//		acknowledgeFrame(streamId);
-		//		break;
-		//	case Command.ReproduceUserInput:
-		//		toaster.Warning("ReproduceUserInput message received from server. This should not ever happen.");
-		//		break;
-		//	case Command.GetDesktopInfo:
-		//		toaster.Info("GetDesktopInfo message received from server.");
-		//		self.currentDesktopInfo = new DesktopInfo(data, { offset: 1 });
-		//		console.log("GetDesktopInfo", self.currentDesktopInfo);
-		//		break;
-		//	case Command.Error_SyntaxError:
-		//		toaster.Warning("Error_SyntaxError message received from server");
-		//		break;
-		//	case Command.Error_CommandCodeUnknown:
-		//		toaster.Warning("Error_CommandCodeUnknown message received from server");
-		//		break;
-		//	case Command.Error_Unspecified:
-		//		toaster.Warning("Error_Unspecified message received from server");
-		//		break;
-		//	default:
-		//		toaster.Warning("Unidentifiable message received from server, starting with byte: " + cmdView[0]);
-		//		break;
-		//}
-	};
-	//this.setStreamSettings = function (clientSettings)
-	//{
-	//	var arg = new Uint8Array(5);
-	//	arg[0] = Command.SetStreamSettings;
-	//	arg[1] = GetImageColorFlags(clientSettings.colorDetail);
-	//	arg[2] = Util.Clamp(parseInt(clientSettings.quality), 1, 100);
-	//	arg[3] = Util.Clamp(parseInt(clientSettings.maxFps), 1, 60);
-	//	arg[4] = Util.Clamp(parseInt(clientSettings.maxFramesInTransit), 1, 60);
-	//	SendToWebSocket(arg);
-	//};
-	//this.startStreaming = function ()
-	//{
-	//	console.log("StartStreaming");
-	//	var arg = new Uint8Array(3);
-	//	arg[0] = Command.StartStreaming;
-	//	arg[1] = StreamType.JPEG; // Stream type (JPEG / H.264). H.264 not yet implemented.
-	//	arg[2] = 0; // 0 = Primary display
+		var totalDataLength = data.byteLength;
+		if (totalDataLength <= 125)
+			totalDataLength += 6;
+		else if (totalDataLength <= 65535)
+			totalDataLength += 8;
+		else
+			totalDataLength += 14;
+		totalBytesReceived += totalDataLength;
 
-	//	SendToWebSocket(arg);
-	//};
-	//this.stopStreaming = function ()
-	//{
-	//	console.log("StopStreaming");
-	//	var arg = new Uint8Array(2);
-	//	arg[0] = Command.StopStreaming;
-	//	SendToWebSocket(arg);
-	//};
-	//var acknowledgeFrame = function (streamId)
-	//{
-	//	var arg = new Uint8Array(2);
-	//	arg[0] = Command.AcknowledgeFrame;
-	//	arg[1] = streamId;
-	//	SendToWebSocket(arg);
-	//};
-	//this.reproduceKeyAction = function (keyDown, keyCode, modifiers)
-	//{
-	//	var arg = new Uint8Array(10);
-	//	arg[0] = Command.ReproduceUserInput;
-	//	arg[1] = keyDown ? InputType.KeyDown : InputType.KeyUp;
-	//	var offsetWrapper = { offset: 2 };
-	//	Util.WriteInt32(arg, offsetWrapper, keyCode);
-	//	Util.WriteUInt32(arg, offsetWrapper, modifiers);
-	//	SendToWebSocket(arg);
-	//};
-	//this.reproduceMouseMoveAction = function (x, y)
-	//{
-	//	var arg = new Uint8Array(10);
-	//	arg[0] = Command.ReproduceUserInput;
-	//	arg[1] = InputType.MouseMove;
-	//	var offsetWrapper = { offset: 2 };
-	//	Util.WriteFloat(arg, offsetWrapper, x);
-	//	Util.WriteFloat(arg, offsetWrapper, y);
-	//	SendToWebSocket(arg);
-	//};
-	//this.reproduceMouseButtonAction = function (buttonDown, buttonCode)
-	//{
-	//	var arg = new Uint8Array(3);
-	//	arg[0] = Command.ReproduceUserInput;
-	//	arg[1] = buttonDown ? InputType.MouseButtonDown : InputType.MouseButtonUp;
-	//	arg[2] = buttonCode;
-	//	SendToWebSocket(arg);
-	//};
-	//this.reproduceMouseWheelAction = function (deltaX, deltaY)
-	//{
-	//	var arg = new Uint8Array(6);
-	//	arg[0] = Command.ReproduceUserInput;
-	//	arg[1] = InputType.MouseWheel;
-	//	var offsetWrapper = { offset: 2 };
-	//	Util.WriteInt16(arg, offsetWrapper, deltaX);
-	//	Util.WriteInt16(arg, offsetWrapper, deltaY);
-	//	SendToWebSocket(arg);
-	//};
-	//var GetImageColorFlags = function (colorDetail)
-	//{
-	//	if (colorDetail === 1)
-	//		return ImgFlags.Color420;
-	//	if (colorDetail === 2)
-	//		return ImgFlags.Color440;
-	//	if (colorDetail === 3)
-	//		return ImgFlags.Color444;
-	//	return ImgFlags.Grayscale;
-	//};
-	//var getDesktopInfo = function ()
-	//{
-	//	var arg = new Uint8Array(1);
-	//	arg[0] = Command.GetDesktopInfo;
-	//	SendToWebSocket(arg);
-	//};
+		if (typeof packetReceived === "function")
+			packetReceived(data, totalDataLength);
+	};
 	this.SendToWebSocket = function (message)
 	{
 		if (typeof socket === "undefined" || !socket)
@@ -192,7 +78,17 @@
 				break;
 			case WebSocketState.Open:
 				if (ws_is_ready)
+				{
 					socket.send(message);
+					var totalDataLength = message.length;
+					if (totalDataLength <= 125)
+						totalDataLength += 6;
+					else if (totalDataLength <= 65535)
+						totalDataLength += 8;
+					else
+						totalDataLength += 14;
+					totalBytesSent += totalDataLength
+				}
 				else
 					console.error("Authentication error");
 				break;
@@ -212,14 +108,21 @@
 	{
 		return socket ? socket.readyState : WebSocketState.Closed;
 	};
+	this.getBufferedAmount = function ()
+	{
+		return socket ? socket.bufferedAmount : 0;
+	};
+	this.getBytesSent = function ()
+	{
+		return totalBytesSent - self.getBufferedAmount();
+	};
+	this.getBytesReceived = function ()
+	{
+		return totalBytesReceived;
+	};
 	///////////////////////////////////////////////////////////////
 	// Private Helper Methods /////////////////////////////////////
 	///////////////////////////////////////////////////////////////
-	var raiseStateChanged = function ()
-	{
-		if (socket && typeof self.onStateChanged === "function")
-			self.onStateChanged(socket.readyState);
-	};
 }
 
 function TranslateWebSocketCloseCode(code)
@@ -280,3 +183,9 @@ var WebSocketCloseCode = new (function ()
 	ws_code_map_name[1015] = "TLS Handshake";
 	ws_code_map_desc[1015] = "Reserved. Indicates that the connection was closed due to a failure to perform a TLS handshake (e.g., the server certificate can't be verified).";
 })();
+var WebSocketState = {
+    Connecting: 0,
+    Open: 1,
+    Closing: 2,
+    Closed: 3
+};

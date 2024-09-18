@@ -1,167 +1,5 @@
-function FetchDataStreamer(url, dataCallback, streamEnded, ShowError)
-{
-	var self = this;
-	var cancel_streaming = false;
-	var stopCalledByApp = false;
-	var reader = null;
-
-	var abort_controller = null;
-	var responseError = null;
-
-	this.StopStreaming = function ()
-	{
-		stopCalledByApp = true;
-		stopStreaming_Internal();
-	}
-	var stopStreaming_Internal = function ()
-	{
-		cancel_streaming = true;
-		// Aborting the AbortController must happen first, or else some versions of MS Edge leave the stream open in the background.
-		if (abort_controller)
-		{
-			abort_controller.abort();
-			abort_controller = null;
-		}
-		if (reader)
-		{
-			var cancelPromise = reader.cancel("Streaming canceled");
-			if (cancelPromise && cancelPromise["catch"])
-				cancelPromise["catch"](function (e)
-				{
-					if (DOMException && DOMException.ABORT_ERR && e && e.code === DOMException.ABORT_ERR)
-					{
-						// Expected result. Don't spam console.
-					}
-					else if (DOMException && DOMException.INVALID_STATE_ERR && e && e.code === DOMException.INVALID_STATE_ERR)
-					{
-						// Expected result in MS Edge.
-					}
-					else
-						console.error(e);
-				});
-			reader = null;
-		}
-	}
-	var Start = function ()
-	{
-		var fetchArgs = { credentials: "same-origin" };
-		if (typeof AbortController === "function")
-		{
-			// FF 57+, Edge 16+ (in theory)
-			// Broken in Edge 17.x and 18.x (connection stays open)
-			// Unknown when it will be fixed
-			abort_controller = new AbortController();
-			fetchArgs.signal = abort_controller.signal;
-		}
-		fetch(url, fetchArgs).then(function (res)
-		{
-			try
-			{
-				if (res.headers.get("Content-Type") === "application/x-binary")
-				{
-					if (!res.ok)
-						responseError = res.status + " " + res.statusText;
-					// Do NOT return before the first reader.read() or the fetch can be left in a bad state!
-					reader = res.body.getReader();
-					return pump(reader);
-				}
-			}
-			catch (e)
-			{
-				ShowError(e);
-			}
-		})["catch"](function (e)
-		{
-			try
-			{
-				CallStreamEnded(e);
-			}
-			catch (e)
-			{
-				ShowError(e);
-			}
-		});
-	}
-	function CallStreamEnded(message)
-	{
-		if (typeof streamEnded === "function")
-		{
-			try
-			{
-				streamEnded(message, stopCalledByApp, responseError);
-			}
-			catch (e)
-			{
-				ShowError(e);
-			}
-		}
-		streamEnded = null;
-	}
-	function CallDataCallback()
-	{
-		try
-		{
-			dataCallback.apply(this, arguments);
-		}
-		catch (e)
-		{
-			ShowError(e);
-		}
-	}
-
-	function pump()
-	{
-		// Do NOT return before the first reader.read() or the fetch can be left in a bad state!
-		// Except if reader is null of course.
-		if (reader == null)
-			return;
-		reader.read().then(function (result)
-		{
-			try
-			{
-				if (result.done)
-				{
-					CallStreamEnded("fetch graceful exit (type 1)");
-					return;
-				}
-				else if (cancel_streaming)
-				{
-					stopStreaming_Internal();
-					CallStreamEnded("fetch graceful exit (type 2)");
-					return;
-				}
-
-				CallDataCallback(result.value);
-				return pump();
-			}
-			catch (e)
-			{
-				ShowError(e);
-			}
-		}
-		)["catch"](function (e)
-		{
-			try
-			{
-				stopStreaming_Internal();
-				CallStreamEnded(e);
-			}
-			catch (e)
-			{
-				ShowError(e);
-			}
-		});
-	}
-
-	try
-	{
-		Start();
-	}
-	catch (e)
-	{
-		ShowError(e);
-	}
-}
+function Queue(){var e=this,a=[],c=0;this.getLength=function(){return a.length-c};this.isEmpty=function(){return a.length===c};this.enqueue=function(d){a.push(d)};this.dequeue=function(){if(!e.isEmpty()){var d=a[c];a[c]=void 0;c++;16<a.length&&2*c>=a.length&&(a=a.slice(c),c=0);return d}};this.peek=function(){return e.isEmpty()?void 0:a[c]};this.replaceFront=function(d){e.isEmpty()?e.enqueue(d):a[c]=d};this.toArray=function(){for(var d=Array(e.getLength()),b=c,f=0;b<a.length;b++,f++)d[f]=a[b];return d};
+this.find=function(d){for(var b=c;b<a.length;b++)if(d(a[b]))return a[b]};this.removeAll=function(d){for(var b=c;b<a.length;b++)d(a[b])&&(a.splice(b,1),b--)}};
 // HELPER METHODS //
 String.prototype.toFloat = function (digits)
 {
@@ -171,7 +9,7 @@ Number.prototype.toFloat = function (digits)
 {
 	return parseFloat(this.toFixed(digits));
 };
-function formatBytes(bytes, decimals)
+function formatBytes2(bytes, decimals)
 {
 	if (bytes == 0) return '0B';
 	var negative = bytes < 0;
@@ -179,19 +17,31 @@ function formatBytes(bytes, decimals)
 		bytes = -bytes;
 	var k = 1024,
 		dm = typeof decimals != "undefined" ? decimals : 2,
+		sizes = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'],
+		i = Math.floor(Math.log(bytes) / Math.log(k));
+	return (negative ? '-' : '') + (bytes / Math.pow(k, i)).toFloat(dm) + sizes[i];
+}
+function formatBytes10(bytes, decimals)
+{
+	if (bytes == 0) return '0B';
+	var negative = bytes < 0;
+	if (negative)
+		bytes = -bytes;
+	var k = 1000,
+		dm = typeof decimals != "undefined" ? decimals : 2,
 		sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
 		i = Math.floor(Math.log(bytes) / Math.log(k));
 	return (negative ? '-' : '') + (bytes / Math.pow(k, i)).toFloat(dm) + sizes[i];
 }
-function formatBitsPerSecond(bits)
+function formatBits(bits)
 {
-	if (bits == 0) return '0 bps';
+	if (bits == 0) return '0 b';
 	var negative = bits < 0;
 	if (negative)
 		bits = -bits;
 	var k = 1000,
 		dm = typeof decimals != "undefined" ? decimals : 2,
-		sizes = ['bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps', 'Pbps', 'Ebps', 'Zbps', 'Ybps'],
+		sizes = ['b', 'Kb', 'Mb', 'Gb', 'Tb', 'Pb', 'Eb', 'Zb', 'Yb'],
 		decimals = [0, 0, 1, 2, 2, 2, 2, 2, 2],
 		i = Math.floor(Math.log(bits) / Math.log(k));
 	return (negative ? '-' : '') + (bits / Math.pow(k, i)).toFloat(decimals[i]) + ' ' + sizes[i];
@@ -207,3 +57,117 @@ function UnescapeHTML(html)
 	escape.innerHTML = html;
 	return escape.textContent;
 }
+/**
+ * Reads a 32-bit unsigned integer (big-endian) from the buffer at the specified offset.
+ * @param {ArrayBuffer} buf - The buffer to read from.
+ * @param {Object} offsetWrapper - An object containing the current offset. The offset will be updated after reading.
+ * @param {number} offsetWrapper.offset - The current offset in the buffer.
+ * @returns {number} The 32-bit unsigned integer read from the buffer.
+ */
+function ReadUInt32(buf, offsetWrapper)
+{
+	if (!offsetWrapper || typeof offsetWrapper.offset !== "number")
+		offsetWrapper = { offset: 0 };
+	var v = new DataView(buf, offsetWrapper.offset, 4).getUint32(0, false);
+	offsetWrapper.offset += 4;
+	return v;
+}
+/**
+ * Reads a 64-bit unsigned integer (big-endian) from the buffer at the specified offset.
+ * This returns BigInt because ordinary JavaScript numbers are natively 64-bit doubles with only 53-bit integer precision.
+ * @param {ArrayBuffer} buf - The buffer to read from.
+ * @param {Object} offsetWrapper - An object containing the current offset. The offset will be updated after reading.
+ * @param {number} offsetWrapper.offset - The current offset in the buffer.
+ * @returns {BigInt} The 64-bit unsigned integer read from the buffer.
+ */
+function ReadUInt64(buf, offsetWrapper)
+{
+	if (!offsetWrapper || typeof offsetWrapper.offset !== "number")
+		offsetWrapper = { offset: 0 };
+	var mostSignificant = BigInt(ReadUInt32(buf, offsetWrapper)) << 32n;
+	var leastSignificant = BigInt(ReadUInt32(buf, offsetWrapper));
+	return mostSignificant + leastSignificant;
+}
+/**
+ * Writes a 32-bit unsigned integer to a new buffer (big-endian).
+ * @param {number} value - The 32-bit unsigned integer to write.
+ * @returns {Uint8Array} A new Uint8Array containing the written value.
+ */
+function UInt32ToUint8Array(value)
+{
+	var buf = new ArrayBuffer(4);
+	var view = new DataView(buf);
+	view.setUint32(0, value, false);
+	return new Uint8Array(buf);
+}
+/**
+ * Writes a 64-bit unsigned integer to a new buffer (big-endian).
+ * @param {BigInt} value - The 64-bit unsigned integer to write.
+ * @returns {Uint8Array} A new Uint8Array containing the written value.
+ */
+function UInt64ToUint8Array(value)
+{
+	value = BigInt(value);
+	var buf = new ArrayBuffer(8);
+	var view = new DataView(buf);
+	var mostSignificant = Number(value >> 32n);
+	var leastSignificant = Number(value & 0xFFFFFFFFn);
+	view.setUint32(0, mostSignificant, false);
+	view.setUint32(4, leastSignificant, false);
+	return new Uint8Array(buf);
+}
+// Vue Speedometer //	
+Vue.component('speedometer', {
+	props: {
+	uploadSpeed: {
+		type: Number,
+		required: true
+	},
+	downloadSpeed: {
+		type: Number,
+		required: true
+	},
+	maxSpeed: {
+		type: Number,
+		default: 100
+	},
+	size: {
+		type: Number,
+		default: 200
+	}
+	},
+	computed: {
+		uploadNeedleX() {
+			return 100 + 90 * Math.cos(this.angle(this.uploadSpeed) - Math.PI / 2);
+		},
+		uploadNeedleY() {
+			return 100 + 90 * Math.sin(this.angle(this.uploadSpeed) - Math.PI / 2);
+		},
+		downloadNeedleX() {
+			return 100 + 90 * Math.cos(this.angle(this.downloadSpeed) - Math.PI / 2);
+		},
+		downloadNeedleY() {
+			return 100 + 90 * Math.sin(this.angle(this.downloadSpeed) - Math.PI / 2);
+		}
+	},
+	methods: {
+		angle(speed) {
+			return (speed / this.maxSpeed) * Math.PI - (Math.PI / 2);
+		},
+		formatBits(bits) {
+			return formatBits(bits);
+		}
+	},
+	template: `
+	<div class="speedometer" style="display: flex; align-items: flex-end;">
+		<div>0</div>
+		<svg :width="size" :height="(size/2)+3" viewBox="0 0 200 100">
+			<circle cx="100" cy="100" r="90" stroke="black" stroke-width="2" fill="none" />
+			<line :x1="0" :y1="size/2" :x2="size" :y2="size/2" stroke="#999999" stroke-width="2" />
+			<line :x1="size/2" :y1="(size/2)-2" :x2="uploadNeedleX" :y2="uploadNeedleY" stroke="#FF8000" stroke-width="4" />
+			<line :x1="size/2" :y1="(size/2)-2" :x2="downloadNeedleX" :y2="downloadNeedleY" stroke="#0000FF" stroke-width="4" />
+		</svg>
+		<div>{{formatBits(maxSpeed)}}ps</div>
+	</div>
+	`
+});

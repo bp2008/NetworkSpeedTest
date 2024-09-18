@@ -10,6 +10,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using BPUtil;
 using BPUtil.SimpleHttp;
+using BPUtil.SimpleHttp.WebSockets;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
 
 namespace NetworkSpeedTest
 {
@@ -17,51 +19,80 @@ namespace NetworkSpeedTest
 	{
 		private long rnd = StaticRandom.Next(int.MinValue, int.MaxValue);
 		private Stopwatch sw = new Stopwatch();
-		NSTWebSocketServer wss;
-		public WebServer(int port) : base(port)
+		public WebServer()
 		{
-			//SendBufferSize = 128;
-			//ReceiveBufferSize = 128;
 			sw.Start();
-			wss = new NSTWebSocketServer(port);
-			wss.Start();
 		}
 		public override void handleGETRequest(HttpProcessor p)
 		{
-			string pageLower = p.requestedPage.ToLower();
-			if (p.requestedPage == "randomdata")
+			string pageLower = p.Request.Page.ToLower();
+			if (p.Request.Page == "nstws_dl" || p.Request.Page == "nstws_bidi")
 			{
-				p.writeSuccess("application/x-binary");
-				p.outputStream.Flush();
+				// Network Speed Test Web Socket - Download Test
+				// or Bidirectional Test.  Both use the same logic since we just receive and disregard any payloads the client sends us.
 
-				int testSec = p.GetIntParam("testsec", 5);
-				testSec = BPMath.Clamp(testSec, 1, 30);
+				// Websocket header length depends on payload length:
+				// * For payload length 125 bytes or smaller, header is 6 bytes.
+				// * For payload length 126 to 65535, header is 8 bytes.
+				// * For payload length 65536 or larger, header is 14 bytes.
 
-				long endTime = sw.ElapsedMilliseconds + (long)TimeSpan.FromSeconds(testSec).TotalMilliseconds;
-				byte[] randomData = StaticRandom.NextBytes(p.tcpClient.SendBufferSize);
-				while (sw.ElapsedMilliseconds < endTime)
+				// Here, send websocket frames that are all the same size, and just send them in a loop as quickly as we can.  The Send method will block if the send buffer is full.
+				//int packetSize = 62500 - 8;
+				//p.GetTcpClient().SendBufferSize = 65535;
+				int packetSize = p.Request.GetIntParam("packetSize", 62500);
+				packetSize = packetSize.Clamp(125, 1000000);
+				if (packetSize <= 125 + 6)
+					packetSize -= 6;
+				else if (packetSize <= 65535 + 8)
+					packetSize -= 8;
+				else
+					packetSize -= 14;
+				p.GetTcpClient().SendBufferSize = Math.Min(65535, packetSize + 100);
+				byte[] buf = ByteUtil.GenerateRandomBytes(packetSize);
+				bool connected = true;
+				WebSocket ws = new WebSocket(p, frame => { }, closeFrame => { connected = false; });
+				while (connected)
+					ws.Send(buf);
+			}
+			else if (p.Request.Page == "nstws_ul")
+			{
+				// Network Speed Test Web Socket - Upload Test
+
+				// Here, we just ignore whatever frames the client sends us.
+				bool connected = true;
+				WebSocket ws = new WebSocket(p, frame => { }, closeFrame => { connected = false; });
+				while (connected && p.CheckIfStillConnected())
+					Thread.Sleep(10);
+			}
+			else if (p.Request.Page == "nstws_ping")
+			{
+				// Network Speed Test Web Socket - Ping Test
+				bool connected = true;
+				WebSocket ws = null;
+				ws = new WebSocket(p, frame =>
 				{
-					p.tcpStream.Write(randomData, 0, randomData.Length);
-				}
+					// Whatever the client sends us, just echo it back so they can tell which ping we are responding to.
+					if (frame is WebSocketBinaryFrame binFrame)
+						ws.Send(binFrame.Data);
+					else if (frame is WebSocketTextFrame txtFrame)
+						ws.Send(txtFrame.Text);
+				}, closeFrame => { connected = false; });
+				while (connected && p.CheckIfStillConnected())
+					Thread.Sleep(10);
 			}
-			else if (p.requestedPage == "nstws")
+			else if (p.Request.Page == "HEADERS")
 			{
-				wss.AcceptIncomingConnection(p.tcpClient);
+				p.Response.FullResponseUTF8(string.Join(Environment.NewLine, p.Request.Headers.Select(h => h.Key + ": " + h.Value)), "text/plain; charset=utf-8");
 			}
-			else if (p.requestedPage == "HEADERS")
+			else if (p.Request.Page == "IP")
 			{
-				p.writeSuccess("text/plain");
-				p.outputStream.Write(string.Join(Environment.NewLine, p.httpHeadersRaw.Select(h => h.Key + ": " + h.Value)));
-			}
-			else if (p.requestedPage == "IP")
-			{
-				p.writeSuccess("text/plain");
-				p.outputStream.Write(p.RemoteIPAddressStr);
+				p.Response.FullResponseUTF8(p.RemoteIPAddressStr, "text/plain; charset=utf-8");
 			}
 			else
 			{
-				if (p.requestedPage == "")
-					p.requestedPage = "default.html";
+				string path = p.Request.Page;
+				if (path == "")
+					path = "default.html";
 
 				string wwwPath = Globals.ApplicationDirectoryBase + "www/";
 #if DEBUG
@@ -70,11 +101,17 @@ namespace NetworkSpeedTest
 #endif
 				DirectoryInfo WWWDirectory = new DirectoryInfo(wwwPath);
 				string wwwDirectoryBase = WWWDirectory.FullName.Replace('\\', '/').TrimEnd('/') + '/';
-				FileInfo fi = new FileInfo(wwwDirectoryBase + p.requestedPage);
+				FileInfo fi = new FileInfo(wwwDirectoryBase + path);
 				string targetFilePath = fi.FullName.Replace('\\', '/');
-				if (!targetFilePath.StartsWith(wwwDirectoryBase) || targetFilePath.Contains("../"))
+				string vueJsDevPath = wwwDirectoryBase + "../vue.js";
+				if (path == "vue.js" && !fi.Exists && File.Exists(vueJsDevPath))
 				{
-					p.writeFailure("400 Bad Request");
+					// Load vue.js from the parent directory if it exists (debug builds within dev environment should hit this).
+					fi = new FileInfo(vueJsDevPath);
+				}
+				else if (!targetFilePath.StartsWith(wwwDirectoryBase) || targetFilePath.Contains("../"))
+				{
+					p.Response.Simple("400 Bad Request");
 					return;
 				}
 				if (!fi.Exists)
@@ -84,49 +121,30 @@ namespace NetworkSpeedTest
 					string html = File.ReadAllText(fi.FullName);
 					html = html.Replace("%%VERSION%%", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString());
 					html = html.Replace("%%RND%%", rnd.ToString());
+#if DEBUG
+					if (File.Exists(vueJsDevPath))
+						html = html.Replace("%%VUEJS%%", "vue.js");
+#endif
+					html = html.Replace("%%VUEJS%%", "vue.min.js");
 
-					byte[] data = Encoding.UTF8.GetBytes(html);
-					p.writeSuccess(Mime.GetMimeType(fi.Extension), data.Length);
-					p.outputStream.Flush();
-					p.tcpStream.Write(data, 0, data.Length);
-					p.tcpStream.Flush();
+					p.Response.FullResponseUTF8(html, Mime.GetMimeType(fi.Extension));
 				}
 				else
 				{
-					string mime = Mime.GetMimeType(fi.Extension);
+					StaticFileOptions options = new StaticFileOptions();
 					if (pageLower.StartsWith(".well-known/acme-challenge/"))
-						mime = "text/plain";
-					if (fi.LastWriteTimeUtc.ToString("R") == p.GetHeaderValue("if-modified-since"))
-					{
-						p.writeSuccess(mime, -1, "304 Not Modified");
-						return;
-					}
-					p.writeSuccess(mime, fi.Length, additionalHeaders: GetCacheLastModifiedHeaders(TimeSpan.FromHours(1), fi.LastWriteTimeUtc));
-					p.outputStream.Flush();
-					using (FileStream fs = fi.OpenRead())
-					{
-						fs.CopyTo(p.tcpStream);
-					}
-					p.tcpStream.Flush();
+						options.ContentTypeOverride = "text/plain";
+					p.Response.StaticFile(fi.FullName, options);
 				}
 			}
-		}
-		private List<KeyValuePair<string, string>> GetCacheLastModifiedHeaders(TimeSpan maxAge, DateTime lastModifiedUTC)
-		{
-			List<KeyValuePair<string, string>> additionalHeaders = new List<KeyValuePair<string, string>>();
-			additionalHeaders.Add(new KeyValuePair<string, string>("Cache-Control", "max-age=" + (long)maxAge.TotalSeconds + ", public"));
-			additionalHeaders.Add(new KeyValuePair<string, string>("Last-Modified", lastModifiedUTC.ToString("R")));
-			return additionalHeaders;
-		}
-
-		public override void handlePOSTRequest(HttpProcessor p, StreamReader inputData)
-		{
-			string pageLower = p.requestedPage.ToLower();
 		}
 
 		protected override void stopServer()
 		{
-			wss.Stop();
+		}
+
+		public override void handlePOSTRequest(HttpProcessor p)
+		{
 		}
 	}
 }

@@ -38,9 +38,7 @@
   <PropertyGroup>
     <StartupObject />
   </PropertyGroup>
-  <PropertyGroup>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-  </PropertyGroup>
+  <PropertyGroup />
   <ItemGroup>
     <Reference Include="Costura, Version=4.1.0.0, Culture=neutral, PublicKeyToken=9919ef960d84173d, processorArchitecture=MSIL">
       <HintPath>..\packages\Costura.Fody.4.1.0\lib\net40\Costura.dll</HintPath>
@@ -100,21 +98,15 @@
       <DependentUpon>DuplexTestButton.cs</DependentUpon>
     </Compile>
     <Compile Include="WebServer.cs" />
-    <Compile Include="NSTWebSocketServer.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="app.manifest" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\BPUtil\BPUtil\BPUtil.csproj">
       <Project>{A4981D8D-DEBF-4B34-B9CE-FF25520A02B7}</Project>
       <Name>BPUtil</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\websocket-sharp\websocket-sharp.csproj">
-      <Project>{B357BAC7-529E-4D81-A0D2-71041B19C8DE}</Project>
-      <Name>websocket-sharp</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -132,9 +124,11 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="vue.js" />
     <Content Include="www\default.html" />
     <Content Include="www\util.js" />
     <Content Include="www\smoothie.js" />
+    <Content Include="www\vue.min.js" />
     <Content Include="www\WebSocketStreamer.js" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

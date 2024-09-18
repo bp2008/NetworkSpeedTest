@@ -41,7 +41,7 @@
 			this.btnDuplexTest.Name = "btnDuplexTest";
 			this.btnDuplexTest.Size = new System.Drawing.Size(145, 62);
 			this.btnDuplexTest.TabIndex = 0;
-			this.btnDuplexTest.Text = "Duplex Test";
+			this.btnDuplexTest.Text = "Server-to-Server Duplex Test";
 			this.btnDuplexTest.UseVisualStyleBackColor = true;
 			this.btnDuplexTest.Click += new System.EventHandler(this.btnDuplexTest_Click);
 			// 

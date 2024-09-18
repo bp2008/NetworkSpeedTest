@@ -154,9 +154,9 @@ namespace NetworkSpeedTest.SpeedTest
 			triggerBroadcastsThread?.Abort();
 			triggerBroadcastsThread = null;
 		}
-		public void AddManual(string hostname, ushort tcpPort, ushort udpPort)
+		public void AddManual(string hostname, ushort tcpPort, ushort udpPort, string title)
 		{
-			RemoteSpeedTestServer server = new RemoteSpeedTestServer(hostname, tcpPort, udpPort);
+			RemoteSpeedTestServer server = new RemoteSpeedTestServer(hostname, tcpPort, udpPort, 1000000000000, title);
 			AddOrUpdate(server);
 		}
 	}

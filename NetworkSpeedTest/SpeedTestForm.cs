@@ -64,6 +64,7 @@ namespace NetworkSpeedTest
 			originalListviewBack = lvRemoteHosts.BackColor;
 		}
 
+		private int manualAdds = 0;
 		private void btnAddHost_Click(object sender, EventArgs e)
 		{
 			InputDialog txtInput = new InputDialog("Add Host", "Enter \"hostname:tcpPort:udpPort\"");
@@ -71,7 +72,7 @@ namespace NetworkSpeedTest
 			{
 				string[] parts = txtInput.InputText.Split(':');
 				if (parts.Length == 3 && parts[0].Length > 0 && ushort.TryParse(parts[1], out ushort tcpPort) && ushort.TryParse(parts[2], out ushort udpPort))
-					autodetector.AddManual(parts[0], tcpPort, udpPort);
+					autodetector.AddManual(parts[0], tcpPort, udpPort, "(Man " + (++manualAdds) + ")");
 				else
 					MessageBox.Show("Invalid input.  Input must match the pattern \"hostname:tcpPort:udpPort\"");
 			}
