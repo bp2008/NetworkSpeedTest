@@ -408,7 +408,7 @@
 					this.testRunning = true;
 					for (var i = 0; i < this.connectionCount; i++)
 					{
-						var wss = new WebSocketStreamer(location.port, endpoint, this.packetReceived);
+						var wss = new WebSocketStreamer(endpoint, this.packetReceived);
 						this.streamers.push(wss);
 						wss.Connect();
 					}
@@ -555,7 +555,7 @@
 					this.streamers[0] = null;
 
 					this.pingError = "";
-					var wss = new WebSocketStreamer(location.port, "/nstws_ping", this.pongReceived, this.pingConnectionLost);
+					var wss = new WebSocketStreamer("/nstws_ping", this.pongReceived, this.pingConnectionLost);
 					this.streamers[0] = wss;
 					try
 					{

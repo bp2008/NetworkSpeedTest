@@ -1,7 +1,5 @@
-﻿function WebSocketStreamer(port, endpoint, packetReceived, onClose)
+﻿function WebSocketStreamer(endpoint, packetReceived, onClose)
 {
-	if (!port)
-		throw new Error("Undefined port number given to WebSocketStreamer");
 	if (!endpoint)
 		throw new Error("Undefined endpoint given to WebSocketStreamer");
 	var self = this;
@@ -14,7 +12,7 @@
 	{
 		return new Promise((resolve, reject) =>
 		{
-			socket = new WebSocket("ws" + (location.protocol === "https:" ? "s" : "") + "://" + location.hostname + ":" + port + endpoint);
+			socket = new WebSocket("ws" + (location.protocol === "https:" ? "s" : "") + "://" + location.hostname + (location.port ? (":" + location.port) : "") + endpoint);
 			socket.binaryType = "arraybuffer";
 			socket.onopen = function (event)
 			{
@@ -29,7 +27,7 @@
 					+ codeTranslation[0] + "\n"
 					+ codeTranslation[1];
 				console.log("WebSocket Closed", errmsg);
-				if(typeof onClose === "function")
+				if (typeof onClose === "function")
 					onClose(event);
 				reject(new Error(errmsg));
 			};
@@ -184,8 +182,8 @@ var WebSocketCloseCode = new (function ()
 	ws_code_map_desc[1015] = "Reserved. Indicates that the connection was closed due to a failure to perform a TLS handshake (e.g., the server certificate can't be verified).";
 })();
 var WebSocketState = {
-    Connecting: 0,
-    Open: 1,
-    Closing: 2,
-    Closed: 3
+	Connecting: 0,
+	Open: 1,
+	Closing: 2,
+	Closed: 3
 };
