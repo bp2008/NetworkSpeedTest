@@ -1,5 +1,8 @@
-function Queue(){var e=this,a=[],c=0;this.getLength=function(){return a.length-c};this.isEmpty=function(){return a.length===c};this.enqueue=function(d){a.push(d)};this.dequeue=function(){if(!e.isEmpty()){var d=a[c];a[c]=void 0;c++;16<a.length&&2*c>=a.length&&(a=a.slice(c),c=0);return d}};this.peek=function(){return e.isEmpty()?void 0:a[c]};this.replaceFront=function(d){e.isEmpty()?e.enqueue(d):a[c]=d};this.toArray=function(){for(var d=Array(e.getLength()),b=c,f=0;b<a.length;b++,f++)d[f]=a[b];return d};
-this.find=function(d){for(var b=c;b<a.length;b++)if(d(a[b]))return a[b]};this.removeAll=function(d){for(var b=c;b<a.length;b++)d(a[b])&&(a.splice(b,1),b--)}};
+function Queue()
+{
+	var e = this, a = [], c = 0; this.getLength = function () { return a.length - c }; this.isEmpty = function () { return a.length === c }; this.enqueue = function (d) { a.push(d) }; this.dequeue = function () { if (!e.isEmpty()) { var d = a[c]; a[c] = void 0; c++; 16 < a.length && 2 * c >= a.length && (a = a.slice(c), c = 0); return d } }; this.peek = function () { return e.isEmpty() ? void 0 : a[c] }; this.replaceFront = function (d) { e.isEmpty() ? e.enqueue(d) : a[c] = d }; this.toArray = function () { for (var d = Array(e.getLength()), b = c, f = 0; b < a.length; b++, f++)d[f] = a[b]; return d };
+	this.find = function (d) { for (var b = c; b < a.length; b++)if (d(a[b])) return a[b] }; this.removeAll = function (d) { for (var b = c; b < a.length; b++)d(a[b]) && (a.splice(b, 1), b--) }
+};
 // HELPER METHODS //
 String.prototype.toFloat = function (digits)
 {
@@ -40,11 +43,22 @@ function formatBits(bits)
 	if (negative)
 		bits = -bits;
 	var k = 1000,
-		dm = typeof decimals != "undefined" ? decimals : 2,
 		sizes = ['b', 'Kb', 'Mb', 'Gb', 'Tb', 'Pb', 'Eb', 'Zb', 'Yb'],
 		decimals = [0, 0, 1, 2, 2, 2, 2, 2, 2],
 		i = Math.floor(Math.log(bits) / Math.log(k));
 	return (negative ? '-' : '') + (bits / Math.pow(k, i)).toFloat(decimals[i]) + ' ' + sizes[i];
+}
+function formatBitsDec(bits, decimals)
+{
+	if (bits == 0) return '0 b';
+	var negative = bits < 0;
+	if (negative)
+		bits = -bits;
+	var k = 1000,
+		dm = typeof decimals != "undefined" ? decimals : 2,
+		sizes = ['b', 'Kb', 'Mb', 'Gb', 'Tb', 'Pb', 'Eb', 'Zb', 'Yb'],
+		i = Math.floor(Math.log(bits) / Math.log(k));
+	return (negative ? '-' : '') + (bits / Math.pow(k, i)).toFloat(dm) + ' ' + sizes[i];
 }
 var escape = document.createElement('textarea');
 function EscapeHTML(html)
@@ -116,45 +130,59 @@ function UInt64ToUint8Array(value)
 	view.setUint32(4, leastSignificant, false);
 	return new Uint8Array(buf);
 }
+function InjectStyleBlock(cssText)
+{
+	var styleBlock = document.createElement('style');
+	styleBlock.setAttribute('type', 'text/css');
+	styleBlock.innerText = cssText;
+	document.head.appendChild(styleBlock);
+	return function (newCssText) { styleBlock.innerText = newCssText; };
+}
 // Vue Speedometer //	
 Vue.component('speedometer', {
 	props: {
-	uploadSpeed: {
-		type: Number,
-		required: true
-	},
-	downloadSpeed: {
-		type: Number,
-		required: true
-	},
-	maxSpeed: {
-		type: Number,
-		default: 100
-	},
-	size: {
-		type: Number,
-		default: 200
-	}
+		uploadSpeed: {
+			type: Number,
+			required: true
+		},
+		downloadSpeed: {
+			type: Number,
+			required: true
+		},
+		maxSpeed: {
+			type: Number,
+			default: 100
+		},
+		size: {
+			type: Number,
+			default: 200
+		}
 	},
 	computed: {
-		uploadNeedleX() {
+		uploadNeedleX()
+		{
 			return 100 + 90 * Math.cos(this.angle(this.uploadSpeed) - Math.PI / 2);
 		},
-		uploadNeedleY() {
+		uploadNeedleY()
+		{
 			return 100 + 90 * Math.sin(this.angle(this.uploadSpeed) - Math.PI / 2);
 		},
-		downloadNeedleX() {
+		downloadNeedleX()
+		{
 			return 100 + 90 * Math.cos(this.angle(this.downloadSpeed) - Math.PI / 2);
 		},
-		downloadNeedleY() {
+		downloadNeedleY()
+		{
 			return 100 + 90 * Math.sin(this.angle(this.downloadSpeed) - Math.PI / 2);
 		}
 	},
 	methods: {
-		angle(speed) {
+		angle(speed)
+		{
 			return (speed / this.maxSpeed) * Math.PI - (Math.PI / 2);
 		},
-		formatBits(bits) {
+		formatBits(bits)
+		{
 			return formatBits(bits);
 		}
 	},
@@ -170,4 +198,70 @@ Vue.component('speedometer', {
 		<div>{{formatBits(maxSpeed)}}ps</div>
 	</div>
 	`
+});
+InjectStyleBlock(`
+.TestResult
+{
+	display: flex;
+    flex-direction: column;
+    align-items: center;
+	padding: 20px;
+	border: 1px solid black;
+}
+.TestResultLabel
+{
+	font-weight: bold;
+}
+.TestResultValue
+{
+}
+`);
+Vue.component('testresult', {
+	props:
+	{
+		label: {
+			type: String,
+			required: true
+		},
+		value: null,
+		color: {
+			type: String,
+			default: "#000000"
+		},
+	},
+	template: `
+	<div class="TestResult">
+		<div class="TestResultLabel" :style="{ color: color }">{{label}}</div>
+		<div class="TestResultValue">{{value}}</div>
+	</div>
+	`
+});
+Vue.component('cfgoption', {
+	props:
+	{
+		value: {
+			required: true
+		},
+		v: {
+			required: true
+		},
+		labelfn: {
+			type: Function,
+			default: arg => arg
+		}
+	},
+	template: `
+    <input type="button"
+      :style="{ opacity: value == v ? 1 : 0.48 }"
+	  :value="labelfn(v)"
+      @click="updateValue"
+    ></input>
+  `,
+	methods:
+	{
+		updateValue()
+		{
+			this.$emit('input', this.v);
+		}
+	}
 });

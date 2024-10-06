@@ -142,10 +142,23 @@ namespace NetworkSpeedTest.SpeedTest
 
 		private void NetworkAddressesChanged()
 		{
-			lock (autodetectBroadcasterLock)
+			int tries = 3;
+			while (tries-- > 0)
 			{
-				autodetectBroadcaster = new GlobalUdpBroadcaster(45678, true);
-				autodetectBroadcaster.PacketReceived += AutodetectBroadcaster_PacketReceived;
+				try
+				{
+					lock (autodetectBroadcasterLock)
+					{
+						autodetectBroadcaster = new GlobalUdpBroadcaster(45678, true);
+						autodetectBroadcaster.PacketReceived += AutodetectBroadcaster_PacketReceived;
+					}
+					tries = 0;
+				}
+				catch (Exception ex)
+				{
+					Logger.Debug(ex);
+					Thread.Sleep(100);
+				}
 			}
 		}
 

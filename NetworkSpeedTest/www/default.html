@@ -6,13 +6,15 @@
 	<!-- The above 2 meta tags *must* come first in the head; any other head content must come *after* these tags -->
 	<meta name="description" content="Network Speed Test for LAN and Internet">
 	<meta name="author" content="bp2008">
+	<link rel="icon" href="/favicon.ico">
 
-	<title>Network Speed Test %%VERSION%%</title>
+	<title>Network Speed Test</title>
 	<style type="text/css">
 		body
 		{
 			font-family: sans-serif;
 			margin: 0px;
+			text-align: center;
 		}
 
 		.componentBody
@@ -125,6 +127,16 @@
 				margin-bottom: 5px;
 			}
 
+				.section div.option
+				{
+					margin-bottom: 1em;
+				}
+
+			.section .optionButtons
+			{
+				margin-top: 5px;
+			}
+
 		div.smoothie-chart-tooltip
 		{
 			background: #EEEEEE;
@@ -156,6 +168,30 @@
 		{
 			margin-top: 0.5em;
 		}
+
+		.speedometerWrapper
+		{
+			display: flex;
+			justify-content: center;
+			flex-wrap: wrap;
+		}
+
+		.testResults
+		{
+			display: flex;
+			justify-content: center;
+			flex-wrap: wrap;
+		}
+
+			.testResults > *
+			{
+				min-width: 90px;
+				margin: 0.5em;
+			}
+
+				.testResults > *:first-child
+				{
+				}
 	</style>
 	<script type="text/javascript" src="%%VUEJS%%?v=%%VERSION%%"></script>
 	<script type="text/javascript" src="smoothie.js?v=%%VERSION%%"></script>
@@ -182,15 +218,65 @@
 				</div>
 				<div>&nbsp;</div>
 				<div class="chartWrapper"><canvas id="smoothie-chart"></div>
-				<div style="font-weight: bold;"><span style="color: #0000ff;">Blue: Download Mbps</span>, <span style="color: #ff8000;">Orange: Upload Mbps</span></div>
+				<div style="font-weight: bold; text-align: center;"><span style="color: #0000ff;">Blue: Download Mbps</span>, <span style="color: #ff8000;">Orange: Upload Mbps</span></div>
 				<div>&nbsp;</div>
-				<speedometer :upload-speed="uploadSpeedMeterValue" :download-speed="downloadSpeedMeterValue" :max-speed="maxSpeedMeterValue" :size="200"></speedometer>
+				<div class="speedometerWrapper">
+					<speedometer :upload-speed="uploadSpeedMeterValue" :download-speed="downloadSpeedMeterValue" :max-speed="maxSpeedMeterValue" :size="200"></speedometer>
+				</div>
 				<div>&nbsp;</div>
-				<div>Download: <span>{{dlRate}}</span></div>
-				<div>Upload: <span>{{ulRate}}</span></div>
-				<div>Latency: <span>{{pingResponseTimeMs}} ms</span></div>
+				<div class="testResults">
+					<testresult label="Download" :value="dlRate" color="#0000FF"></testresult>
+					<testresult label="Upload" :value="ulRate" color="#FF8000"></testresult>
+					<testresult label="Latency" :value="pingResponseTimeMs + ' ms'"></testresult>
+				</div>
 				<div>&nbsp;</div>
 				<div>Test Progress: <span></span></div>
+			</div>
+			<div class="section">
+				<h3>Presets</h3>
+				<div class="option">
+					<div class="optionButtons">
+						<input type="button" value="Light" @click="connectionCount=1,testSeconds=5,messageSize=62500" class="lightBlue" :disabled="testRunning" />
+						<input type="button" value="Default" @click="connectionCount=3,testSeconds=5,messageSize=125000" class="green" :disabled="testRunning" />
+						<input type="button" value="Hardcore 5s" @click="connectionCount=5,testSeconds=5,messageSize=250000" class="yellow" :disabled="testRunning" />
+					</div>
+				</div>
+			</div>
+			<div class="section">
+				<h3>Advanced Options</h3>
+				<div class="option">
+					<label>Connection Count: <input type="range" min="1" max="5" v-model="connectionCount" :disabled="testRunning" /></label> {{connectionCount}}
+					<div class="optionButtons">
+						<cfgoption v-model="connectionCount" :v="1" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="connectionCount" :v="2" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="connectionCount" :v="3" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="connectionCount" :v="4" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="connectionCount" :v="5" class="blue" :disabled="testRunning"></cfgoption>
+					</div>
+				</div>
+				<div class="option">
+					<label>Test Duration: <input type="range" min="1" max="30" v-model="testSeconds" :disabled="testRunning" /> {{testSeconds}} seconds</label>
+					<div class="optionButtons">
+						<cfgoption v-model="testSeconds" :labelfn="addSec" :v="1" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="testSeconds" :labelfn="addSec" :v="3" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="testSeconds" :labelfn="addSec" :v="5" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="testSeconds" :labelfn="addSec" :v="10" class="yellow" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="testSeconds" :labelfn="addSec" :v="30" class="orange" :disabled="testRunning"></cfgoption>
+					</div>
+				</div>
+				<div class="option">
+					<label>Message Size: <input type="range" min="125" max="1000000" v-model="messageSize" :disabled="testRunning" /> {{messageSizeInXBits}} ({{messageSizeInXBytes10}})</label>
+					<div class="optionButtons" title="Message Size Presets are labeled in metric bits (e.g. kilobits).">
+						<cfgoption v-model="messageSize" :labelfn="formatMessageSizeLabel" :v="125" class="yellow" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="messageSize" :labelfn="formatMessageSizeLabel" :v="1250" class="yellow" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="messageSize" :labelfn="formatMessageSizeLabel" :v="12500" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="messageSize" :labelfn="formatMessageSizeLabel" :v="62500" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="messageSize" :labelfn="formatMessageSizeLabel" :v="125000" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="messageSize" :labelfn="formatMessageSizeLabel" :v="250000" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="messageSize" :labelfn="formatMessageSizeLabel" :v="500000" class="orange" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="messageSize" :labelfn="formatMessageSizeLabel" :v="1000000" class="orange" :disabled="testRunning"></cfgoption>
+					</div>
+				</div>
 			</div>
 			<div class="section">
 				<h3>Nerdy Metadata</h3>
@@ -200,22 +286,6 @@
 				<div>Data Uploaded (overall): {{formatBytes10(ulOverall)}}</div>
 				<div>
 					<input type="button" v-on:click="ClearCounters()" value="Clear Counters" class="red" :disabled="testRunning" />
-				</div>
-			</div>
-			<div class="section">
-				<h3>Advanced Options</h3>
-				<div><label>Connection Count: <input type="range" min="1" max="5" v-model="connectionCount" :disabled="testRunning" /></label> {{connectionCount}}</div>
-				<div><label>Test Duration: <input type="range" min="1" max="30" v-model="testSeconds" :disabled="testRunning" /> {{testSeconds}} seconds</label></div>
-				<div><label>Message Size: <input type="range" min="125" max="1000000" v-model="messageSize" :disabled="testRunning" /> {{messageSizeInXBits}} ({{messageSizeInXBytes10}})</label></div>
-				<div>Message Size Presets (in kilobits or megabits): </div>
-				<div class="messageSizeButtons">
-					<input type="button" value="1 Kb" @click="messageSize=125" class="lightBlue" :disabled="testRunning" />
-					<input type="button" value="100 Kb" @click="messageSize=12500" class="lightBlue" :disabled="testRunning" />
-					<input type="button" value="500 Kb" @click="messageSize=62500" class="blue" :disabled="testRunning" />
-					<input type="button" value="1 Mb" @click="messageSize=125000" class="blue" :disabled="testRunning" />
-					<input type="button" value="2 Mb" @click="messageSize=250000" class="blue" :disabled="testRunning" />
-					<input type="button" value="4 Mb" @click="messageSize=500000" class="yellow" :disabled="testRunning" />
-					<input type="button" value="8 Mb" @click="messageSize=1000000" class="yellow" :disabled="testRunning" />
 				</div>
 			</div>
 			<div class="section">
@@ -229,7 +299,48 @@
 				</div>
 			</div>
 		</div>
-		<script type="text/javascript">
+	</div>
+	<script type="text/javascript">
+		function ReportError(err)
+		{
+			var vueRoot = document.getElementById("vueRoot");
+			if (vueRoot)
+				vueRoot.style.display = "none";
+			var errDiv = document.createElement("div");
+			errDiv.style.whiteSpace = "pre-wrap";
+			errDiv.style.margin = "8px";
+			errDiv.innerText = err.stack ?? err;
+			document.body.appendChild(errDiv);
+			console.error(err);
+		}
+		window.onerror = function (msg, url, line, charIdx)
+		{
+			try
+			{
+				if (!url)
+					url = "";
+				url = url.replace(/\/\/.*?\//, '//censored_hostname/');
+				var errStr = "An unexpected error has occurred in (Network Speed Test %%VERSION%%). A full refresh may solve the problem (CTRL + F5).\n\n" + msg + "\nat " + url + " [" + line + ":" + charIdx + "]\n" + navigator.userAgent;
+
+				try
+				{
+					if (toaster)
+						toaster.Error(errStr, 600000);
+				}
+				catch (ex) { }
+				ReportError(errStr);
+			}
+			catch (ex)
+			{
+				ReportError(ex);
+			}
+		};
+	</script>
+	<script type="text/javascript">
+		Vue.config.errorHandler = function (err, vm, info)
+		{
+			ReportError(err);
+		};
 		var startedGraph = false;
 		var guiRefreshRateFPS = 15;
 		var countPingsAsMeasuredBandwidth = false;
@@ -255,9 +366,9 @@
 					dlOverall: 0,
 					ulOverall: 0,
 					streamers: [null], // The 0th element of the streamers array is reserved for a websocket that is used only for pinging / latency measurement.
-					connectionCount: 1,
+					connectionCount: 3,
 					testSeconds: 5,
-					messageSize: 62500,
+					messageSize: 125000,
 					bufferOutgoingBytes: 10 * 1000 * 1000, // 10 MB outgoing buffer per connection
 					testRunning: false,
 					abortTimeout: null,
@@ -274,7 +385,7 @@
 					uploadSpeedMeterValue: 50,
 					downloadSpeedMeterValue: 100,
 					maxSpeedMeterIndex: 0,
-					maxSpeedMeterTable: [1*1000*1000, 10*1000*1000, 100*1000*1000, 1*1000*1000*1000, 5*1000*1000*1000, 10*1000*1000*1000, 25*1000*1000*1000, 50*1000*1000*1000, 100*1000*1000*1000],
+					maxSpeedMeterTable: [1 * 1000 * 1000, 10 * 1000 * 1000, 100 * 1000 * 1000, 1 * 1000 * 1000 * 1000, 5 * 1000 * 1000 * 1000, 10 * 1000 * 1000 * 1000, 25 * 1000 * 1000 * 1000, 50 * 1000 * 1000 * 1000, 100 * 1000 * 1000 * 1000],
 					pingSentAt: 0,
 					pingExpireTimeout: null,
 					nextPingTimeout: null,
@@ -287,7 +398,7 @@
 			created: function ()
 			{
 			},
-			mounted: function()
+			mounted: function ()
 			{
 				this.startPinging();
 			},
@@ -435,7 +546,15 @@
 				{
 					return formatBits(bits);
 				},
-				guiRefresh: function()
+				formatMessageSizeLabel: function (bytes)
+				{
+					return formatBitsDec(bytes * 8, 2);
+				},
+				addSec: function (v)
+				{
+					return v + " sec";
+				},
+				guiRefresh: function ()
 				{
 					this.dlThis = dlThisBytes;
 					this.dlOverall = dlOverallBytes;
@@ -475,12 +594,12 @@
 					this.downloadSpeedMeterValue = dlBps;
 					this.uploadSpeedMeterValue = ulBps;
 					while ((dlBps >= this.maxSpeedMeterValue || ulBps >= this.maxSpeedMeterValue)
-							&& this.maxSpeedMeterIndex < this.maxSpeedMeterTable.length - 1)
+						&& this.maxSpeedMeterIndex < this.maxSpeedMeterTable.length - 1)
 					{
 						this.maxSpeedMeterIndex++;
 					}
 				},
-				uploadLoop: function()
+				uploadLoop: function ()
 				{
 					if (!this.testRunning)
 						return;
@@ -490,19 +609,19 @@
 						var streamer = this.streamers[i];
 						if (streamer.getReadyState() !== WebSocketState.Open)
 							continue;
-						while(streamer.getBufferedAmount() < this.bufferOutgoingBytes)
+						while (streamer.getBufferedAmount() < this.bufferOutgoingBytes)
 							streamer.SendToWebSocket(this.uploadMessage);
 					}
 					this.uploadLoopTimeout = setTimeout(this.uploadLoop, 0);
 				},
-				ClearCounters: function()
+				ClearCounters: function ()
 				{
 					this.dlOverall = dlOverallBytes = 0;
 					this.dlThis = dlThisBytes = 0;
 					this.ulThis = ulOverallBytes = 0;
 					this.ulOverall = ulThisBytes = 0;
 				},
-				sendPing: function()
+				sendPing: function ()
 				{
 					clearTimeout(this.pingReconnectTimeout);
 					clearTimeout(this.nextPingTimeout);
@@ -513,7 +632,7 @@
 					this.pingSentAt = performance.now();
 					this.pingExpireTimeout = setTimeout(this.sendPing, 3000);
 				},
-				pongReceived: function(data, totalDataLength)
+				pongReceived: function (data, totalDataLength)
 				{
 					if (countPingsAsMeasuredBandwidth)
 						this.packetReceived(data, totalDataLength);
@@ -533,7 +652,7 @@
 							this.sendPing();
 					}
 				},
-				pingConnectionLost: function(event)
+				pingConnectionLost: function (event)
 				{
 					if (this.streamers[0] && (this.streamers[0].getReadyState() == WebSocketState.Closing || this.streamers[0].getReadyState() == WebSocketState.Closed))
 					{
@@ -544,7 +663,7 @@
 						this.pingReconnectTimeout = setTimeout(this.startPinging, 1000);
 					}
 				},
-				startPinging: async function()
+				startPinging: async function ()
 				{
 					clearTimeout(this.pingReconnectTimeout);
 					clearTimeout(this.nextPingTimeout);
@@ -561,7 +680,7 @@
 					{
 						await wss.Connect();
 					}
-					catch(ex)
+					catch (ex)
 					{
 						this.pingError = ex.message;
 						setTimeout(this.startPinging, 1000);
@@ -651,6 +770,6 @@
 					queued = { args: arguments };
 			};
 		}
-		</script>
+	</script>
 </body>
 </html>

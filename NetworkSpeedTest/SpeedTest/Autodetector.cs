@@ -122,8 +122,21 @@ namespace NetworkSpeedTest.SpeedTest
 		{
 			Stop();
 
-			broadcastReceiver = new GlobalUdpBroadcaster(45678, true);
-			broadcastReceiver.PacketReceived += BroadcastReceiver_PacketReceived;
+			int tries = 3;
+			while (tries-- > 0)
+			{
+				try
+				{
+					broadcastReceiver = new GlobalUdpBroadcaster(45678, true);
+					broadcastReceiver.PacketReceived += BroadcastReceiver_PacketReceived;
+					tries = 0;
+				}
+				catch (Exception ex)
+				{
+					Logger.Debug(ex);
+					Thread.Sleep(100);
+				}
+			}
 
 			triggerBroadcastsThread = new Thread(() =>
 			{

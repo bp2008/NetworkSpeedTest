@@ -48,6 +48,7 @@ namespace NetworkSpeedTest
 				else
 					packetSize -= 14;
 				p.GetTcpClient().SendBufferSize = Math.Min(65535, packetSize + 100);
+				p.GetTcpClient().ReceiveTimeout = 35000;
 				byte[] buf = ByteUtil.GenerateRandomBytes(packetSize);
 				bool connected = true;
 				WebSocket ws = new WebSocket(p, frame => { }, closeFrame => { connected = false; });

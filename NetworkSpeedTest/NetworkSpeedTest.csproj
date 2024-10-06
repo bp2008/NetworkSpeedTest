@@ -126,6 +126,7 @@
   <ItemGroup>
     <Content Include="vue.js" />
     <Content Include="www\default.html" />
+    <Content Include="www\favicon.ico" />
     <Content Include="www\util.js" />
     <Content Include="www\smoothie.js" />
     <Content Include="www\vue.min.js" />
