@@ -127,6 +127,7 @@ namespace NetworkSpeedTest.SpeedTest
 			{
 				try
 				{
+					broadcastReceiver?.Dispose();
 					broadcastReceiver = new GlobalUdpBroadcaster(45678, true);
 					broadcastReceiver.PacketReceived += BroadcastReceiver_PacketReceived;
 					tries = 0;
@@ -161,7 +162,7 @@ namespace NetworkSpeedTest.SpeedTest
 		}
 		public void Stop()
 		{
-			broadcastReceiver?.Stop();
+			broadcastReceiver?.Dispose();
 			broadcastReceiver = null;
 
 			triggerBroadcastsThread?.Abort();

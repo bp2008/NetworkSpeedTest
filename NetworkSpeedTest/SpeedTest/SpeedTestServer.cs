@@ -86,7 +86,11 @@ namespace NetworkSpeedTest.SpeedTest
 								}
 								finally
 								{
-									autodetectBroadcaster.Stop();
+									lock (autodetectBroadcasterLock)
+									{
+										autodetectBroadcaster?.Dispose();
+										autodetectBroadcaster = null;
+									}
 								}
 							}
 							finally
@@ -127,6 +131,12 @@ namespace NetworkSpeedTest.SpeedTest
 				NetworkChange.NetworkAddressChanged -= NetworkChange_NetworkAddressChanged;
 			}
 			catch { }
+
+			lock (autodetectBroadcasterLock)
+			{
+				autodetectBroadcaster?.Dispose();
+				autodetectBroadcaster = null;
+			}
 		}
 
 		#region Autodetect Broadcaster
@@ -149,6 +159,7 @@ namespace NetworkSpeedTest.SpeedTest
 				{
 					lock (autodetectBroadcasterLock)
 					{
+						autodetectBroadcaster?.Dispose();
 						autodetectBroadcaster = new GlobalUdpBroadcaster(45678, true);
 						autodetectBroadcaster.PacketReceived += AutodetectBroadcaster_PacketReceived;
 					}
@@ -178,18 +189,23 @@ namespace NetworkSpeedTest.SpeedTest
 						if (tcpListenPort > 0 && udpListenPort > 0)
 						{
 							lock (autodetectBroadcasterLock)
-								autodetectBroadcaster.Broadcast(nic =>
+							{
+								if (autodetectBroadcaster != null)
 								{
-									using (MemoryStream ms = new MemoryStream())
+									autodetectBroadcaster.Broadcast(nic =>
 									{
-										ByteUtil.WriteUtf8("SpeedTestServer1", ms);
-										ByteUtil.WriteUInt16((ushort)tcpListenPort, ms);
-										ByteUtil.WriteUInt16((ushort)udpListenPort, ms);
-										ByteUtil.WriteInt64(nic.Speed, ms);
-										ByteUtil.WriteUtf8_16(Environment.MachineName, ms);
-										return ms.ToArray();
-									}
-								});
+										using (MemoryStream ms = new MemoryStream())
+										{
+											ByteUtil.WriteUtf8("SpeedTestServer1", ms);
+											ByteUtil.WriteUInt16((ushort)tcpListenPort, ms);
+											ByteUtil.WriteUInt16((ushort)udpListenPort, ms);
+											ByteUtil.WriteInt64(nic.Speed, ms);
+											ByteUtil.WriteUtf8_16(Environment.MachineName, ms);
+											return ms.ToArray();
+										}
+									});
+								}
+							}
 						}
 					}
 				}
