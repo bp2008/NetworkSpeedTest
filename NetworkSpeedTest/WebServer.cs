@@ -19,12 +19,21 @@ namespace NetworkSpeedTest
 	{
 		private long rnd = StaticRandom.Next(int.MinValue, int.MaxValue);
 		private Stopwatch sw = new Stopwatch();
+		/// <summary>
+		/// 65K min buffer size per connection.
+		/// </summary>
+		private const int MinBufferSize = 65536;
+		/// <summary>
+		/// 20 MiB buffer size limit per connection, applied to both send and receive buffers in the appropriate websockets.
+		/// </summary>
+		private const int MaxBufferSize = 20 * 1024 * 1024;
 		public WebServer()
 		{
 			sw.Start();
 		}
 		public override void handleGETRequest(HttpProcessor p)
 		{
+			p.GetTcpClient().NoDelay = true;
 			string pageLower = p.Request.Page.ToLower();
 			if (p.Request.Page == "nstws_dl" || p.Request.Page == "nstws_bidi")
 			{
@@ -40,14 +49,14 @@ namespace NetworkSpeedTest
 				//int packetSize = 62500 - 8;
 				//p.GetTcpClient().SendBufferSize = 65535;
 				int packetSize = p.Request.GetIntParam("packetSize", 62500);
-				packetSize = packetSize.Clamp(125, 1000000);
+				int psParam = packetSize = packetSize.Clamp(125, 1000000);
 				if (packetSize <= 125 + 6)
 					packetSize -= 6;
 				else if (packetSize <= 65535 + 8)
 					packetSize -= 8;
 				else
 					packetSize -= 14;
-				p.GetTcpClient().SendBufferSize = Math.Min(65535, packetSize + 100);
+				SetBufferSizes(p, psParam, true, p.Request.Page == "nstws_bidi");
 				p.GetTcpClient().ReceiveTimeout = 35000;
 				byte[] buf = ByteUtil.GenerateRandomBytes(packetSize);
 				bool connected = true;
@@ -61,6 +70,9 @@ namespace NetworkSpeedTest
 
 				// Here, we just ignore whatever frames the client sends us.
 				bool connected = true;
+				int packetSize = p.Request.GetIntParam("packetSize", 62500);
+				int psParam = packetSize = packetSize.Clamp(125, 1000000);
+				SetBufferSizes(p, psParam, false, true);
 				WebSocket ws = new WebSocket(p, frame => { }, closeFrame => { connected = false; });
 				while (connected && p.CheckIfStillConnected())
 					Thread.Sleep(10);
@@ -138,6 +150,17 @@ namespace NetworkSpeedTest
 					p.Response.StaticFile(fi.FullName, options);
 				}
 			}
+		}
+
+		protected void SetBufferSizes(HttpProcessor p, int packetSize, bool send, bool receive)
+		{
+			double megabitsPacketSize = (packetSize * 8.0) / 1000000.0;
+			int bufferSize = (int)(megabitsPacketSize * 2 * 1024 * 1024); // This calculation is a bit arbitrary, tuned based on experimentation.
+			bufferSize = bufferSize.Clamp(MinBufferSize, MaxBufferSize);
+			if (send)
+				p.GetTcpClient().SendBufferSize = bufferSize;
+			if (receive)
+				p.GetTcpClient().ReceiveBufferSize = bufferSize;
 		}
 
 		protected override void stopServer()

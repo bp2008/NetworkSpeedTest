@@ -157,6 +157,19 @@
 			font-size: 0px;
 		}
 
+		.wsSquaresWrapper
+		{
+			margin-top: 2px;
+			line-height: 0;
+			font-size: 0;
+		}
+
+		#ws-squares
+		{
+			display: inline-block;
+			vertical-align: top;
+		}
+
 		#smoothie-chart
 		{
 			width: 100%;
@@ -218,6 +231,7 @@
 				</div>
 				<div>&nbsp;</div>
 				<div class="chartWrapper"><canvas id="smoothie-chart"></div>
+					<div class="wsSquaresWrapper"><canvas id="ws-squares" width="0" height="0"></canvas></div>
 				<div style="font-weight: bold; text-align: center;"><span style="color: #0000ff;">Blue: Download Mbps</span>, <span style="color: #ff8000;">Orange: Upload Mbps</span></div>
 				<div>&nbsp;</div>
 				<div class="speedometerWrapper">
@@ -239,20 +253,28 @@
 						<input type="button" value="Light" @click="connectionCount=1,testSeconds=5,messageSize=62500" class="lightBlue" :disabled="testRunning" />
 						<input type="button" value="Default" @click="connectionCount=3,testSeconds=5,messageSize=125000" class="green" :disabled="testRunning" />
 						<input type="button" value="Hardcore 5s" @click="connectionCount=5,testSeconds=5,messageSize=250000" class="yellow" :disabled="testRunning" />
+						<input type="button" value="Extreme" @click="connectionCount=64,testSeconds=5,messageSize=1000000" class="orange" :disabled="testRunning" />
 					</div>
 				</div>
 			</div>
 			<div class="section">
 				<h3>Advanced Options</h3>
 				<div class="option">
-					<label>Connection Count: <input type="range" min="1" max="5" v-model="connectionCount" :disabled="testRunning" /></label> {{connectionCount}}
+					<label>Connection Count: <input type="range" min="1" max="64" v-model="connectionCount" :disabled="testRunning" style="width: 450px; max-width: 85vw; vertical-align: middle;" /></label> {{connectionCount}}
 					<div class="optionButtons">
 						<cfgoption v-model="connectionCount" :v="1" class="blue" :disabled="testRunning"></cfgoption>
 						<cfgoption v-model="connectionCount" :v="2" class="blue" :disabled="testRunning"></cfgoption>
 						<cfgoption v-model="connectionCount" :v="3" class="blue" :disabled="testRunning"></cfgoption>
 						<cfgoption v-model="connectionCount" :v="4" class="blue" :disabled="testRunning"></cfgoption>
 						<cfgoption v-model="connectionCount" :v="5" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="connectionCount" :v="8" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="connectionCount" :v="16" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="connectionCount" :v="24" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="connectionCount" :v="32" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="connectionCount" :v="48" class="blue" :disabled="testRunning"></cfgoption>
+						<cfgoption v-model="connectionCount" :v="64" class="orange" :disabled="testRunning"></cfgoption>
 					</div>
+					<div class="label" v-if="connectionCount > 5">Note: High connection counts may impact web browser stability.</div>
 				</div>
 				<div class="option">
 					<label>Test Duration: <input type="range" min="1" max="30" v-model="testSeconds" :disabled="testRunning" /> {{testSeconds}} seconds</label>
@@ -401,6 +423,7 @@
 			mounted: function ()
 			{
 				this.startPinging();
+				window.addEventListener('resize', this.onSquaresResize);
 			},
 			computed:
 			{
@@ -442,9 +465,13 @@
 					clearTimeout(this.uploadLoopTimeout);
 					clearTimeout(this.abortTimeout);
 					clearInterval(this.guiRefreshInterval);
+					cancelAnimationFrame(this.squaresRafId);
 					this.testProgress = "idle";
 					if (this.testRunning)
 					{
+						// Render one final frame while the streamers are still connected so the
+						// squares freeze on their last state after the test ends.
+						this.renderSquares();
 						for (var i = 1; i < this.streamers.length; i++)
 							this.streamers[i].Disconnect();
 						if (this.streamers.length > 1)
@@ -464,7 +491,7 @@
 					else if (testDownload)
 						endpoint = "/nstws_dl?packetSize=" + this.messageSize;
 					else if (testUpload)
-						endpoint = "/nstws_ul";
+						endpoint = "/nstws_ul?packetSize=" + this.messageSize;
 					else
 					{
 						alert("Application error. Please reload and try again.");
@@ -527,6 +554,143 @@
 						this.uploadLoopTimeout = setTimeout(this.uploadLoop, 0);
 					this.abortTimeout = setTimeout(this.StartSpeedTest, this.testSeconds * 1000);
 					this.guiRefreshInterval = setInterval(this.guiRefresh, 1000 / guiRefreshRateFPS);
+
+					// Start the WebSocket status squares rendering loop (while the test runs).
+					this.setupSquares();
+					this.squaresLastFrame = 0;
+					this.squaresRafId = requestAnimationFrame(this.squaresLoop);
+				},
+				setupSquares: function ()
+				{
+					if (!this.squaresCanvas)
+					{
+						this.squaresCanvas = document.getElementById('ws-squares');
+						this.squaresCtx = this.squaresCanvas.getContext('2d');
+					}
+					this.layoutSquares();
+				},
+				layoutSquares: function ()
+				{
+					var canvas = this.squaresCanvas;
+					if (!canvas)
+						return;
+					// Each square is 48px; adjacent squares overlap by 1px so their black
+					// borders collapse into a single shared line (like border-collapse).
+					var S = 48;
+					var step = S - 1;
+					var n = this.streamers.length - 1; // streamers[0] is the ping/latency socket.
+					if (n < 0)
+						n = 0;
+					var parent = canvas.parentElement;
+					var avail = (parent ? parent.clientWidth : 0) || window.innerWidth || 300;
+					// How many squares fit across the available width; wrap to more rows if needed.
+					var cols = Math.max(1, Math.floor((avail - 1) / step));
+					if (n > 0 && cols > n)
+						cols = n;
+					var rows = n > 0 ? Math.ceil(n / cols) : 0;
+					var cssW = n > 0 ? (cols * step + 1) : 0;
+					var cssH = rows > 0 ? (rows * step + 1) : 0;
+					var dpr = window.devicePixelRatio || 1;
+					this.squaresDpr = dpr;
+					this.squaresCols = cols;
+					this.squaresCount = n;
+					canvas.width = Math.round(cssW * dpr);
+					canvas.height = Math.round(cssH * dpr);
+					canvas.style.width = cssW + 'px';
+					canvas.style.height = cssH + 'px';
+				},
+				onSquaresResize: function ()
+				{
+					// Only reflow while a test is running; a finished test stays frozen.
+					if (this.testRunning)
+					{
+						this.layoutSquares();
+						this.renderSquares();
+					}
+				},
+				squaresLoop: function (now)
+				{
+					if (!this.testRunning)
+						return;
+					// Throttle to ~30 FPS.
+					if (now - this.squaresLastFrame >= (1000 / guiRefreshRateFPS))
+					{
+						this.squaresLastFrame = now;
+						this.renderSquares();
+					}
+					this.squaresRafId = requestAnimationFrame(this.squaresLoop);
+				},
+				renderSquares: function ()
+				{
+					var ctx = this.squaresCtx;
+					if (!ctx)
+						return;
+					var S = 48;
+					var step = S - 1;
+					var n = this.squaresCount;
+					var cols = this.squaresCols;
+					var dpr = this.squaresDpr;
+					var HOLD_MS = 100;      // Line hovers at the top this long after a packet.
+					var FALL_END_MS = 1000; // Line reaches the bottom this long after the last packet.
+					var LH = 3;             // Line height in pixels.
+					var now = performance.now();
+
+					ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+					ctx.clearRect(0, 0, this.squaresCanvas.width, this.squaresCanvas.height);
+
+					for (var j = 0; j < n; j++)
+					{
+						var x = (j % cols) * step;
+						var y = Math.floor(j / cols) * step;
+						var streamer = this.streamers[j + 1];
+						var connected = streamer && streamer.getReadyState() === WebSocketState.Open;
+
+						// Border: fill the whole box black, then paint the interior over it.
+						// Grayed-out (low contrast) while connecting, high contrast when connected.
+						ctx.fillStyle = '#000000';
+						ctx.fillRect(x, y, S, S);
+						ctx.fillStyle = connected ? '#ffffff' : '#cfcfcf';
+						ctx.fillRect(x + 1, y + 1, S - 2, S - 2);
+
+						var ix = x + 1;
+						var iy = y + 1;
+						var iw = S - 2;
+						var ih = S - 2;
+						var halfW = iw / 2;
+
+						// Faint divider between the receive (left) and send (right) halves.
+						ctx.fillStyle = 'rgba(0,0,0,0.08)';
+						ctx.fillRect(ix + halfW, iy, 1, ih);
+
+						if (connected)
+						{
+							// Left half: blue line/fill for the most recently received packet.
+							var lastRecv = streamer.getLastReceivedAt();
+							var rAge = now - lastRecv;
+							if (lastRecv > 0 && rAge <= FALL_END_MS)
+							{
+								var rp = rAge <= HOLD_MS ? 0 : (rAge - HOLD_MS) / (FALL_END_MS - HOLD_MS);
+								var rly = iy + rp * (ih - LH);
+								ctx.fillStyle = 'rgba(0,0,255,0.30)';
+								ctx.fillRect(ix, rly, halfW, (iy + ih) - rly);
+								ctx.fillStyle = '#0000ff';
+								ctx.fillRect(ix, rly, halfW, LH);
+							}
+
+							// Right half: orange line/fill for the most recently sent packet.
+							var lastSent = streamer.getLastSentAt();
+							var sAge = now - lastSent;
+							if (lastSent > 0 && sAge <= FALL_END_MS)
+							{
+								var sp = sAge <= HOLD_MS ? 0 : (sAge - HOLD_MS) / (FALL_END_MS - HOLD_MS);
+								var sly = iy + sp * (ih - LH);
+								ctx.fillStyle = 'rgba(255,128,0,0.30)';
+								ctx.fillRect(ix + halfW, sly, iw - halfW, (iy + ih) - sly);
+								ctx.fillStyle = '#ff8000';
+								ctx.fillRect(ix + halfW, sly, iw - halfW, LH);
+							}
+						}
+					}
 				},
 				packetReceived: function (data, totalDataLength)
 				{

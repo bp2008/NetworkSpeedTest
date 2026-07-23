@@ -7,6 +7,8 @@
 	var ws_is_ready = false;
 	var totalBytesSent = 0;
 	var totalBytesReceived = 0;
+	var lastReceivedAt = 0;
+	var lastSentAt = 0;
 
 	this.Connect = function ()
 	{
@@ -50,6 +52,7 @@
 	};
 	var HandleWSMessage = function (data)
 	{
+		lastReceivedAt = performance.now();
 		var totalDataLength = data.byteLength;
 		if (totalDataLength <= 125)
 			totalDataLength += 6;
@@ -86,6 +89,7 @@
 					else
 						totalDataLength += 14;
 					totalBytesSent += totalDataLength
+					lastSentAt = performance.now();
 				}
 				else
 					console.error("Authentication error");
@@ -117,6 +121,14 @@
 	this.getBytesReceived = function ()
 	{
 		return totalBytesReceived;
+	};
+	this.getLastReceivedAt = function ()
+	{
+		return lastReceivedAt;
+	};
+	this.getLastSentAt = function ()
+	{
+		return lastSentAt;
 	};
 	///////////////////////////////////////////////////////////////
 	// Private Helper Methods /////////////////////////////////////
